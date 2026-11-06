@@ -6,10 +6,17 @@ import { fileURLToPath } from 'node:url';
 import { readFlex, summarize, validate, pearson, parseCSV } from './ms05-analysis/analysis.mjs';
 import { runWorkflow } from './ms09-agents/workflow.mjs';
 import { SOURCES } from './ms02-connectors/registry.mjs';
+import { openCatalog, ingestBundledFlex, listCatalog, getExperiments } from './src/data/catalog.mjs';
+import { compareExperiments, runAnalysis, replayAnalysis, scientificChallenge, MEASUREMENTS } from './src/science/research.mjs';
 
 const readFileAsync = promisify(readFile);
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_ROOT = path.resolve(ROOT, 'public');
+let catalogPromise;
+function catalog() {
+  catalogPromise ??= (async () => { const db = await openCatalog(process.env.MORS_DB_PATH || undefined); await ingestBundledFlex(db); return db; })();
+  return catalogPromise;
+}
 
 function loadEnvFile() {
   if (process.env.MORS_DISABLE_CREDENTIALS === '1') return;
@@ -185,6 +192,28 @@ async function api(req, res, url) {
     });
   }
   if (url.pathname === '/api/sources' && req.method === 'GET') return send(res, 200, { sources: readSourceList() });
+  if (url.pathname === '/api/catalog' && req.method === 'GET') {
+    return send(res, 200, { datasets: listCatalog(await catalog()) });
+  }
+  if (url.pathname === '/api/catalog/experiments' && req.method === 'GET') {
+    const records = getExperiments(await catalog());
+    return send(res, 200, { datasetId: 'PSI-69-subset', records });
+  }
+  if (['/api/research/analyze','/api/research/compare','/api/research/replay','/api/research/challenge'].includes(url.pathname) && req.method === 'POST') {
+    if (!rateLimit(`${ip}:research`, 30)) return send(res, 429, { error: 'Research request limit reached.' });
+    const input = await readJson(req, 30_000);
+    const rows = await readFlex();
+    const version = (listCatalog(await catalog())[0] || {}).version_sha256;
+    try {
+      if (url.pathname === '/api/research/analyze') return send(res, 200, runAnalysis(rows, { ...input, datasetVersion: version }));
+      if (url.pathname === '/api/research/compare') {
+        const a = rows.find(r => r.id === input.a), b = rows.find(r => r.id === input.b);
+        return send(res, 200, compareExperiments(a,b,input.measurement));
+      }
+      if (url.pathname === '/api/research/replay') return send(res, 200, replayAnalysis(rows,input.saved));
+      return send(res, 200, scientificChallenge(rows,input));
+    } catch { return send(res, 400, { error: 'Research request is invalid or cannot be computed from available records.' }); }
+  }
   if (url.pathname === '/api/datasets/flex' && req.method === 'GET') {
     const rows = await readFlex();
     return send(res, 200, {
@@ -290,11 +319,13 @@ async function api(req, res, url) {
       safeHistory.push({ role: turn.role, content: turn.content.slice(0, 1200) });
     }
     const rows = await readFlex();
+    const toolAnalysis = runAnalysis(rows, { question, datasetVersion: (listCatalog(await catalog())[0] || {}).version_sha256 });
+    const toolsExecuted = [{ tool: 'runAnalysis', status: 'complete', resultSha256: toolAnalysis.recipe.resultSha256, evidence: 'COMPUTED' }];
     const apiKey = secrets.gemini();
-    if (!apiKey) return send(res, 200, { status: 'offline-fallback', provider: 'deterministic local summary', answer: localAnswer(rows, question), citation: SOURCES[0].url });
+    if (!apiKey) return send(res, 200, { status: 'offline-fallback', provider: 'deterministic local summary', answer: localAnswer(rows, question), citation: SOURCES[0].url, toolsExecuted, analysis: toolAnalysis });
     const context = {
       dataset: 'NASA PSI-69 FLEX, five-row source table subset; DOI 10.60555/mbq8-0451',
-      rows, statistics: summarize(rows),
+      rows, statistics: summarize(rows), toolAnalysis,
       limitations: 'Small, selected subset; descriptive only; not representative of the full FLEX study; missing values excluded per variable.'
     };
     const transcript = safeHistory.map(turn => `${turn.role.toUpperCase()}: ${turn.content}`).join('\n');
@@ -311,12 +342,12 @@ async function api(req, res, url) {
         signal: AbortSignal.timeout(35_000)
       });
       const result = JSON.parse(await readResponseText(response, 300_000));
-      if (!response.ok) return send(res, 200, { status: 'provider-fallback', provider: 'deterministic local summary', answer: localAnswer(rows, question), note: `Gemini returned HTTP ${response.status}; showing a deterministic local summary.`, citation: SOURCES[0].url });
+      if (!response.ok) return send(res, 200, { status: 'provider-fallback', provider: 'deterministic local summary', answer: localAnswer(rows, question), note: `Gemini returned HTTP ${response.status}; showing a deterministic local summary.`, citation: SOURCES[0].url, toolsExecuted, analysis: toolAnalysis });
       const answer = (result.steps || []).filter(step => step.type === 'model_output').flatMap(step => step.content || []).filter(block => block.type === 'text').map(block => block.text).join('\n').slice(0, 8000);
-      if (!answer) return send(res, 200, { status: 'provider-fallback', provider: 'deterministic local summary', answer: localAnswer(rows, question), citation: SOURCES[0].url });
-      return send(res, 200, { status: 'live', provider: 'Gemini Interactions API', model: result.model || model, answer, citation: SOURCES[0].url });
+      if (!answer) return send(res, 200, { status: 'provider-fallback', provider: 'deterministic local summary', answer: localAnswer(rows, question), citation: SOURCES[0].url, toolsExecuted, analysis: toolAnalysis });
+      return send(res, 200, { status: 'live', provider: 'Gemini Interactions API', model: result.model || model, answer, citation: SOURCES[0].url, toolsExecuted, analysis: toolAnalysis });
     } catch {
-      return send(res, 200, { status: 'provider-fallback', provider: 'deterministic local summary', answer: localAnswer(rows, question), note: 'Gemini failed or timed out; showing a deterministic local summary.', citation: SOURCES[0].url });
+      return send(res, 200, { status: 'provider-fallback', provider: 'deterministic local summary', answer: localAnswer(rows, question), note: 'Gemini failed or timed out; showing a deterministic local summary.', citation: SOURCES[0].url, toolsExecuted, analysis: toolAnalysis });
     }
   }
   if (url.pathname.startsWith('/api/')) return send(res, 405, { error: 'Method not allowed.' });

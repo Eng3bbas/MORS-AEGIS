@@ -1,8 +1,8 @@
 {
   "name": "mors-aegis",
-  "version": "1.0.0",
+  "version": "3.0.0-alpha.1",
   "private": true,
   "type": "module",
   "scripts": { "start": "node server.mjs", "dev": "node --watch server.mjs", "test": "node --test" },
-  "engines": { "node": ">=20" }
+  "engines": { "node": ">=22.13" }
 }

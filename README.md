@@ -1,12 +1,12 @@
 # MORS AEGIS
 
-Scientific fire and space intelligence application focused on NASA’s Flame Extinguishment Experiment (FLEX), with a chat-first research assistant and local analysis tools. It runs as a local Node.js service. No dependencies are required.
+MORS AEGIS 3.0 alpha is a local scientific research application centered on a five-record FLEX table extract. It combines traceable analysis, a portable SQLite catalogue, image pixel measurements, optional real FIRMS observations and a research chatbot. Scientific and deployment limits are recorded in `docs/FINAL_VERIFICATION.md`.
 
 ## Run it
 
 On this Windows machine, run `start.ps1` from PowerShell. It starts the app at <http://127.0.0.1:4173> and points the backend at the supplied Desktop credential file if it exists. The server parses credentials in memory and never returns their values to the browser. You can instead copy `.env.example` to `.env` and set values there. Never commit `.env`.
 
-Requirements: Node.js 20+. To start manually: `npm start`. To validate: `npm test`. Container use is available with `docker compose up --build` after creating a local `.env` if credentials are needed.
+Requirements: Node.js 22.13+ (Node 26 used for local verification). To start manually: `npm start`. To validate: `npm test`. Container use is available with `docker compose up --build` after creating a local `.env` if credentials are needed.
 
 ## What works
 

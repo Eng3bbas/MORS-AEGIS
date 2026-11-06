@@ -2,5 +2,9 @@
 .env.*
 !.env.example
 node_modules/
+var/
+dist/
 *.log
 .DS_Store
+launcher/bin/
+launcher/obj/

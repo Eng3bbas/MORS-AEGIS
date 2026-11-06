@@ -1,0 +1,7 @@
+# Pixel vision and Earth globe
+
+The vision lab accepts a local PNG, JPEG or WebP still image up to 12 MB and four million pixels. It applies a documented warm-color threshold, chooses the largest four-connected region, and exports pixel area, four-neighbor perimeter, centroid and bounding box. The overlay is exploratory. It does not infer temperature, calibrated physical dimensions, flame identity, NASA attribution, or detector accuracy. Warm backgrounds and compression can create false positives. The source image is not uploaded to the application server.
+
+The Earth globe renders a mathematical orthographic projection of a sphere with draggable camera center and wheel zoom. Every plotted point comes from a successful NASA FIRMS VIIRS Suomi-NPP NRT area response; no synthetic hotspots are drawn. A zero-record or failed request shows an empty state. Selecting an observation exposes returned location, time, instrument, satellite, confidence, FRP and source fields when provided. Region/date requests are bounded by the backend; visible hemisphere and row count are reported. The globe uses a schematic graticule and has no terrain or satellite imagery. MODIS harmonization is not implemented because the existing connector currently exposes only VIIRS SNPP NRT.
+
+These modules are independent from microgravity combustion and do not imply satellite hotspots are fire perimeters. Pixel and geospatial functions have deterministic tests. Runtime browser input, responsiveness, and export actions require integration verification after app mounting.

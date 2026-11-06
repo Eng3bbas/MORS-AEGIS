@@ -1,0 +1,7 @@
+# MORS AEGIS Windows distribution
+
+The launcher source is `launcher/Program.cs`. Build on Windows with .NET SDK 10 and a standalone Node 26 executable: `pwsh -File scripts/build-windows.ps1`. The script restores required .NET runtime packs from nuget.org, creates `MORS-AEGIS-Windows` beside this repository and fails if that destination already exists. Use `-Destination <new path>` for another build.
+
+The build copies only application code/data, the Node runtime and `mors.exe`; local `.env`, credentials, tests, reports and Git metadata are excluded. It does not put API keys into the binary or distribution. The launcher chooses a free loopback port, retries backend startup, verifies `/api/health`, opens the default browser, and stays in the Windows system tray. Double-click the tray icon to reopen the app; right-click and choose Exit to stop its child backend. A second launch opens the running instance. Logs contain launcher status only at `%LOCALAPPDATA%\MORS-AEGIS\launcher.log` and are rotated at 1 MB. The database is written to `%LOCALAPPDATA%\MORS-AEGIS\data\mors.sqlite`.
+
+`mors.exe --self-test` starts the bundled backend, checks readiness, then stops without opening a browser. Inspect its process exit code and the launcher log. This verifies the packaged backend on the build machine; a clean-machine Windows test remains a separate release gate. The launcher currently terminates its child process on Exit; no in-flight request draining is implemented. Database integrity uses SQLite's built-in checks from the scientific data layer where available.
