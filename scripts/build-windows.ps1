@@ -19,6 +19,8 @@ New-Item -ItemType Directory -Path (Join-Path $destinationAbsolute 'runtime') | 
 New-Item -ItemType Directory -Path (Join-Path $destinationAbsolute 'app') | Out-Null
 $runtime = Join-Path $destinationAbsolute 'runtime\node.exe'
 Copy-Item -LiteralPath $NodePath -Destination $runtime
+$nodeLicense = Join-Path (Split-Path -Parent $NodePath) 'LICENSE'
+if (Test-Path -LiteralPath $nodeLicense -PathType Leaf) { Copy-Item -LiteralPath $nodeLicense -Destination (Join-Path $destinationAbsolute 'runtime\NODE-LICENSE.txt') }
 $app = Join-Path $destinationAbsolute 'app'
 foreach ($file in @('server.mjs', 'package.json')) { Copy-Item -LiteralPath (Join-Path $project $file) -Destination $app }
 foreach ($dir in @('ms02-connectors', 'ms05-analysis', 'ms09-agents', 'public', 'src')) {
