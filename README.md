@@ -6,7 +6,7 @@ MORS AEGIS 3.0 alpha is a local scientific research application centered on a fi
 
 On this Windows machine, run `start.ps1` from PowerShell. It starts the app at <http://127.0.0.1:4173> and points the backend at the supplied Desktop credential file if it exists. The server parses credentials in memory and never returns their values to the browser. You can instead copy `.env.example` to `.env` and set values there. Never commit `.env`.
 
-Requirements: Node.js 22.13+ (Node 26 used for local verification). To start manually: `npm start`. To validate: `npm test`. Container use is available with `docker compose up --build` after creating a local `.env` if credentials are needed.
+Requirements: Node.js 22.13+ (Node 26 used for local verification). To start manually: `npm start`. To validate: `npm test`. For Docker, set a random 32+ character `MORS_ACCESS_TOKEN` in a local `.env`, then run `docker compose up --build` and open `http://127.0.0.1:4173`. The browser will ask for the token once per server session. Compose publishes on loopback only; use TLS and access controls before changing that binding.
 
 ## What works
 

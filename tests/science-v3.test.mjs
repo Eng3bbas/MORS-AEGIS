@@ -35,11 +35,21 @@ test('analysis replay reproduces checksum and detects changed source measurement
   assert.equal(replayAnalysis(rows,analysis).matches,true);
   assert.equal(replayAnalysis(rows.map((r,i)=>i? r:{...r,burning_rate_mm_s:0.53}),analysis).matches,false);
   assert.equal(replayAnalysis(rows.map((r,i)=>i? r:{...r,pressure_mmHg:r.pressure_mmHg+1}),analysis).matches,false);
+  assert.equal(replayAnalysis(rows,{...analysis,result:{...analysis.result,mean:999}}).savedResultMatches,false);
+  const versioned=runAnalysis(rows,{datasetVersion:'real-version'});
+  assert.equal(replayAnalysis(rows,{...versioned,recipe:{...versioned.recipe,datasetVersion:'fake-version'}},'real-version').versionMatches,false);
+  assert.equal(replayAnalysis(rows,{...analysis,recipe:{...analysis.recipe,datasetId:'fake-dataset'}}).recipeMatches,false);
+  assert.equal(replayAnalysis(rows,{...analysis,question:'A different scientific question'}).questionMatches,false);
+  assert.equal(replayAnalysis(rows,{...analysis,recipe:{...analysis.recipe,version:1}}).matches,false);
   assert.throws(()=>runAnalysis(rows,{variable:'__proto__'}),/Unknown/);
 });
 test('challenge labels hypothesis as unproven and carries replay recipe',async()=>{
-  const result=scientificChallenge(await readFlex(),{question:'How do selected burning rates differ?'});
+  const rows=await readFlex();
+  const result=scientificChallenge(rows,{question:'How do selected burning rates differ?',selectedIds:[rows[0].id,rows[1].id]});
   assert.equal(result.hypothesis.supported,false);
+  assert.equal(result.comparison.status,'partial');
   assert.match(result.analysis.recipe.inputSha256,/^[a-f0-9]{64}$/);
   assert.equal(result.stages.find(s=>s.stage==='Suitability').status,'partial');
+  assert.equal(scientificChallenge(rows,{question:'What is the capital of France?'}).status,'unsupported');
+  assert.equal(scientificChallenge(rows,{question:'How do selected burning rates differ?'}).status,'unsupported');
 });

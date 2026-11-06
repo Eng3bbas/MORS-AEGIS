@@ -1,4 +1,5 @@
 // Orthographic spherical projection of genuine FIRMS observations. No synthetic hotspots.
+import { csvCell } from './csv-safe.js';
 const DEG=Math.PI/180;
 export function projectEarth(latitude,longitude,centerLatitude,centerLongitude,radius,cx,cy){
   const lat=latitude*DEG,lon=(longitude-centerLongitude)*DEG,base=centerLatitude*DEG;
@@ -44,7 +45,7 @@ export function mountEarthGlobe(root){
     finally{if(id===requestId&&!disposed)q('#globeLoad').disabled=false}
   };
   q('#globeList').onchange=e=>{if(e.target.value!=='')inspect(Number(e.target.value))};
-  q('#globeExport').onclick=()=>{if(!rows.length)return;const keys=Object.keys(rows[0]),cell=v=>'"'+String(v??'').replaceAll('"','""')+'"',csv=[keys.join(','),...rows.map(r=>keys.map(k=>cell(r[k])).join(','))].join('\r\n'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv'})),a=document.createElement('a');a.href=url;a.download='mors-firms-observations.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+  q('#globeExport').onclick=()=>{if(!rows.length)return;const keys=Object.keys(rows[0]),csv=[keys.map(csvCell).join(','),...rows.map(r=>keys.map(k=>csvCell(r[k])).join(','))].join('\r\n'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv'})),a=document.createElement('a');a.href=url;a.download='mors-firms-observations.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
   canvas.onpointerdown=e=>{canvas.setPointerCapture(e.pointerId);drag={x:e.offsetX,y:e.offsetY,moved:false}};
   canvas.onpointermove=e=>{if(!drag)return;const dx=e.offsetX-drag.x,dy=e.offsetY-drag.y;if(Math.abs(dx)+Math.abs(dy)>2)drag.moved=true;centerLon=((centerLon-dx*.3+540)%360)-180;centerLat=Math.max(-85,Math.min(85,centerLat+dy*.3));drag.x=e.offsetX;drag.y=e.offsetY;draw()};
   canvas.onpointerup=e=>{if(!drag)return;const moved=drag.moved;drag=null;if(moved)return;const sx=canvas.width/canvas.clientWidth,sy=canvas.height/canvas.clientHeight,x=e.offsetX*sx,y=e.offsetY*sy;let closest=null,dist=12*12;for(const p of points){const d=(p.x-x)**2+(p.y-y)**2;if(d<dist){closest=p.index;dist=d}}if(closest!==null)inspect(closest)};

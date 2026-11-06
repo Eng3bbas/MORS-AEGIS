@@ -53,6 +53,17 @@ test('isolated backend contract and defensive boundaries', { timeout: 20000 }, a
   await t.test('Copilot has honest deterministic fallback without credentials', async () => {
     const r = await fetch(`${base}/api/copilot`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"question":"Mean burning rate?"}' });
     const j = await r.json(); assert.equal(j.status, 'offline-fallback'); assert.match(j.answer, /0\.556/); assert.match(j.citation, /psi\.nasa\.gov/);
+    const record = await (await fetch(`${base}/api/copilot`, { method:'POST', headers:{'content-type':'application/json'}, body:'{"question":"What was the pressure in 20CAL08?"}' })).json();
+    assert.equal(record.toolsExecuted[0].tool,'lookupExperiment'); assert.match(record.answer,/20CAL08/); assert.equal(record.analysis,null);
+    const unrelated = await (await fetch(`${base}/api/copilot`, { method:'POST', headers:{'content-type':'application/json'}, body:'{"question":"What is the capital of France?"}' })).json();
+    assert.equal(unrelated.status,'unsupported'); assert.equal(unrelated.toolsExecuted.length,0);
+  });
+  await t.test('API replay detects altered saved result and dataset version', async () => {
+    const submit = body => fetch(`${base}/api/research/replay`, {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({saved:body})});
+    const analysis=await (await fetch(`${base}/api/research/analyze`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'})).json();
+    assert.equal((await (await submit(analysis)).json()).matches,true);
+    assert.equal((await (await submit({...analysis,result:{...analysis.result,mean:999}})).json()).matches,false);
+    assert.equal((await (await submit({...analysis,recipe:{...analysis.recipe,datasetVersion:'fake-version'}})).json()).versionMatches,false);
   });
   await t.test('FIRMS rejects global area before contacting provider', async () => {
     assert.equal((await fetch(`${base}/api/firms?bbox=-180,-80,180,80`)).status, 400);

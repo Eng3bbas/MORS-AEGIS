@@ -1,4 +1,42 @@
 // Pixel-domain analysis of a user-provided still image. No physical calibration is implied.
+export async function readImageDimensions(file) {
+  const bytes = new Uint8Array(await file.slice(0, file.type === 'image/jpeg' ? file.size : 64).arrayBuffer());
+  const be32 = at => ((bytes[at] * 2 ** 24) + (bytes[at+1] << 16) + (bytes[at+2] << 8) + bytes[at+3]);
+  let width, height;
+  if (file.type === 'image/png' && bytes.length >= 24 && bytes.slice(0,8).every((v,i)=>v===[137,80,78,71,13,10,26,10][i]) && String.fromCharCode(...bytes.slice(12,16)) === 'IHDR') {
+    width=be32(16); height=be32(20);
+  } else if (file.type === 'image/jpeg' && bytes[0] === 0xff && bytes[1] === 0xd8) {
+    let at=2;
+    while (at+3 < bytes.length) {
+      if (bytes[at++] !== 0xff) break;
+      while (bytes[at] === 0xff) at++;
+      const marker=bytes[at++];
+      if (marker === 0xda || marker === 0xd9) break;
+      if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+      const length=(bytes[at] << 8) | bytes[at+1];
+      if (length < 2 || at + length > bytes.length) break;
+      if ([0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf].includes(marker) && length >= 7) {
+        height=(bytes[at+3] << 8) | bytes[at+4]; width=(bytes[at+5] << 8) | bytes[at+6]; break;
+      }
+      at += length;
+    }
+  } else if (file.type === 'image/webp' && bytes.length >= 30 && String.fromCharCode(...bytes.slice(0,4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8,12)) === 'WEBP') {
+    const format=String.fromCharCode(...bytes.slice(12,16));
+    if (format === 'VP8X') {
+      width=1+bytes[24]+(bytes[25]<<8)+(bytes[26]<<16);
+      height=1+bytes[27]+(bytes[28]<<8)+(bytes[29]<<16);
+    } else if (format === 'VP8L' && bytes[20] === 0x2f) {
+      width=1+bytes[21]+((bytes[22]&0x3f)<<8);
+      height=1+((bytes[22]>>6)&3)+(bytes[23]<<2)+((bytes[24]&0x0f)<<10);
+    } else if (format === 'VP8 ' && bytes[23] === 0x9d && bytes[24] === 0x01 && bytes[25] === 0x2a) {
+      width=((bytes[27]<<8)|bytes[26])&0x3fff;
+      height=((bytes[29]<<8)|bytes[28])&0x3fff;
+    }
+  }
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) throw new Error('Image dimensions could not be verified before decoding.');
+  if (width * height > 4_000_000) throw new Error('Image exceeds 4 million pixels.');
+  return { width, height };
+}
 export function segmentWarmPixels(rgba, width, height, threshold = 90) {
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || width * height > 4_000_000 || rgba.length < width * height * 4) throw new Error('Invalid image dimensions');
   const mask = new Uint8Array(width * height);
@@ -38,7 +76,7 @@ export function mountVisionLab(root){
     bitmap?.close?.();bitmap=null;result=null;q('#visionAnalyze').disabled=true;q('#visionExport').disabled=true;
     const item=file.files?.[0];if(!item)return;
     if(!['image/png','image/jpeg','image/webp'].includes(item.type)||item.size>12_000_000){status.textContent='Unsupported image or file larger than 12 MB.';return}
-    try{bitmap=await createImageBitmap(item);if(bitmap.width*bitmap.height>4_000_000){bitmap.close();bitmap=null;throw new Error('Image exceeds 4 million pixels')}
+    try{const dimensions=await readImageDimensions(item);bitmap=await createImageBitmap(item);if(bitmap.width!==dimensions.width||bitmap.height!==dimensions.height||bitmap.width*bitmap.height>4_000_000){bitmap.close();bitmap=null;throw new Error('Decoded image dimensions differ from verified header or exceed the pixel limit')}
       filename=item.name;width=bitmap.width;height=bitmap.height;
       for(const id of ['#visionOriginal','#visionOverlay']){const canvas=q(id);canvas.width=width;canvas.height=height;canvas.getContext('2d').drawImage(bitmap,0,0)}
       status.textContent=`Loaded ${width} × ${height} pixels. Adjust threshold and analyze.`;q('#visionAnalyze').disabled=false;
