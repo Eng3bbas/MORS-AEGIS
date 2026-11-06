@@ -1,0 +1,11 @@
+services:
+  mors-aegis:
+    build: .
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HOST: 0.0.0.0
+      PORT: 4173
+    ports:
+      - "127.0.0.1:4173:4173"

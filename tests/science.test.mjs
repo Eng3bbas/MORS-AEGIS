@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFlex,summarize,validate,parseCSV} from '../ms05-analysis/analysis.mjs';
+import {runWorkflow,independentReview,AGENT_ROLES} from '../ms09-agents/workflow.mjs';
+test('independent reviewer rejects tampered statistics',async()=>{const rows=await readFlex(),s=summarize(rows);s.stats.burning_rate_mm_s.mean=42;assert.equal(independentReview(rows,s).accepted,false)});
+test('custom records never inherit NASA provenance',async()=>{const rows=await readFlex();rows[0].burning_rate_mm_s=.53;const w=runWorkflow(rows);assert.equal(w.status,'reviewed');assert.equal(w.provenance.doi,null);assert.equal(w.provenance.sourceId,'user-supplied-unverified')});
+test('workflow rejects null inputs without crashing',()=>{assert.equal(runWorkflow(null).status,'rejected')});
+test('role contracts deny tool execution and expose deterministic mode',()=>{assert.equal(AGENT_ROLES.length,16);assert.ok(AGENT_ROLES.every(r=>r.denied.includes('credential access')))});
+test('CSV rejects text after quotes and invalid empty headers',()=>{assert.throws(()=>parseCSV('id,note\nA,"quoted"junk'));assert.throws(()=>parseCSV('id,id',{allowEmpty:true}))});
+test('duplicate experiment identifiers rejected',async()=>{const [row]=await readFlex();assert.equal(validate([row,row]).valid,false)});
+test('outcome strings cannot access object prototype',()=>{assert.equal(summarize([{test_end:'__proto__'}]).outcomes.__proto__,1)});
+test('review rejects missing fields and numerical overflow',async()=>{const rows=await readFlex(),s=summarize(rows);delete s.stats.pressure_mmHg;assert.equal(independentReview(rows,s).accepted,false);rows.forEach(r=>r.burning_rate_mm_s=1e308);assert.equal(runWorkflow(rows).status,'rejected')});

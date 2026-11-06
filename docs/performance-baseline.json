@@ -1,0 +1,1 @@
+{"runtime":"v26.13.0","platform":"win32","records":5,"iterations":1000,"validate":{"medianMs":0.0189,"p95Ms":0.0275},"summarize":{"medianMs":0.0041,"p95Ms":0.0069},"workflow":{"medianMs":0.0266,"p95Ms":0.0474},"scope":"Pre-upgrade local microbenchmark; not a browser or scaling benchmark."}
