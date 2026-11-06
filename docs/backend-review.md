@@ -19,7 +19,7 @@ The first Host spoofing test used Node fetch, which normalized the Host header a
 
 ## Gemini review
 
-Official documentation at https://ai.google.dev/gemini-api/docs/interactions redirected to https://aistudio.google.com/docs/interactions-overview and was fetched during this review. It documents `gemini-3.8-flash`, execution steps and `model_output`, consistent with current integration. No speculative model/endpoint substitution was made. Previous live provider failures do not establish an invalid key. This review's automated tests verify only offline failure recovery; live provider validity is not claimed.
+The official [Gemini Interactions API documentation](https://ai.google.dev/gemini-api/docs/interactions-overview) describes the model and response structure used here. A read-only models request accepted the configured key (HTTP 200). Live `gemini-3-flash-preview` Interactions and the local `/api/copilot` endpoint returned an answer (HTTP 200); `gemini-3.8-flash` returned HTTP 503 during this check. The default is therefore `gemini-3-flash-preview`, with one retry on the other model for HTTP 404 or 503. These observations verify the key and one live path at the time of testing; provider availability can change.
 
 ## Remaining boundaries
 
