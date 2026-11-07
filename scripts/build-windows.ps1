@@ -42,7 +42,7 @@ Remove-Item -LiteralPath $publishAbsolute -Recurse -Force
 MORS AEGIS Windows distribution
 Double-click mors.exe to open the local application in your default browser.
 Right-click the MORS system tray icon and choose Exit to stop the local service.
-The application binds to 127.0.0.1 and stores its SQLite database under %LOCALAPPDATA%\MORS-AEGIS\data.
+The application binds to the private LAN and stores its SQLite database under %LOCALAPPDATA%\MORS-AEGIS\data. Right-click the tray icon and choose LAN access details to see the address and private access token. Share the token only with trusted users on your private network. The Windows Firewall rule is scoped to the Private profile and local subnet.
 API keys are not included. Configure MORS_CREDENTIALS_FILE in your environment or use the existing Desktop key file on this machine.
 '@ | Set-Content -LiteralPath (Join-Path $destinationAbsolute 'README-Windows.txt') -Encoding utf8
 $excluded = @(Get-ChildItem -LiteralPath $destinationAbsolute -Recurse -File | Where-Object { $_.Name -match '(?i)^\.env$|credential|new text document \(2\)' })

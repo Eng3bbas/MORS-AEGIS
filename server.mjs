@@ -2,6 +2,7 @@ import http from 'node:http';
 import { readFile, readFileSync, existsSync } from 'node:fs';
 import { promisify } from 'node:util';
 import path from 'node:path';
+import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { summarize, validate, pearson, parseCSV } from './ms05-analysis/analysis.mjs';
@@ -51,7 +52,9 @@ const ACCESS_TOKEN = process.env.MORS_ACCESS_TOKEN || '';
 if (NETWORK_MODE && ACCESS_TOKEN.length < 32) throw new Error('Network binding requires MORS_ACCESS_TOKEN with at least 32 characters.');
 const SESSION_TOKEN = randomBytes(32).toString('hex');
 if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) throw new Error('PORT must be an integer between 1 and 65535.');
-const ALLOWED_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`, `[::1]:${PORT}`]);
+const localIPv4 = Object.values(os.networkInterfaces()).flat().filter(item => item && item.family === 'IPv4' && !item.internal).map(item => item.address);
+const ALLOWED_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`, `[::1]:${PORT}`,
+  ...(NETWORK_MODE ? localIPv4.map(address => `${address}:${PORT}`) : [])]);
 
 function escapeRegex(value) { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function credential(name, aliases = []) {
@@ -143,6 +146,7 @@ function send(res, status, data, type = 'application/json; charset=utf-8') {
 function requestIsLocal(req) {
   const host = String(req.headers.host || '').toLowerCase();
   if (!ALLOWED_HOSTS.has(host)) return false;
+  if (NETWORK_MODE && !isLoopbackOrPrivate(req.socket.remoteAddress)) return false;
   if (req.headers['sec-fetch-site'] === 'cross-site') return false;
   const origin = req.headers.origin;
   if (!origin) return true; // CLI clients and same-origin navigations may omit Origin.
@@ -150,6 +154,13 @@ function requestIsLocal(req) {
     const parsed = new URL(origin);
     return parsed.origin === `http://${host}`;
   } catch { return false; }
+}
+function isLoopbackOrPrivate(address = '') {
+  const ip = address.startsWith('::ffff:') ? address.slice(7) : address;
+  if (ip === '::1' || ip.startsWith('fe80:') || ip.startsWith('fc') || ip.startsWith('fd')) return true;
+  const octets = ip.split('.').map(Number);
+  if (octets.length !== 4 || octets.some(value => !Number.isInteger(value) || value < 0 || value > 255)) return false;
+  return octets[0] === 127 || octets[0] === 10 || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) || (octets[0] === 192 && octets[1] === 168 || octets[0] === 169 && octets[1] === 254);
 }
 function equalSecret(a, b) {
   const left = Buffer.from(String(a));

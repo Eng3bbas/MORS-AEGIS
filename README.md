@@ -8,6 +8,10 @@ On this Windows machine, run `start.ps1` from PowerShell. It starts the app at <
 
 Requirements: Node.js 22.13+ (Node 26 used for local verification). To start manually: `npm start`. To validate: `npm test`. For Docker, set a random 32+ character `MORS_ACCESS_TOKEN` in a local `.env`, then run `docker compose up --build` and open `http://127.0.0.1:4173`. The browser will ask for the token once per server session. Compose publishes on loopback only; use TLS and access controls before changing that binding.
 
+### Windows LAN distribution
+
+The self-contained Windows x64 package is built with `scripts/build-windows.ps1`; see [Windows distribution instructions](docs/WINDOWS_DISTRIBUTION.md). Run `mors.exe` on the computer that will host the app. It binds to that computer's private LAN address, requires a generated access token, and offers **LAN access details** in its system-tray menu. Use the displayed URL and token from another device on the same trusted network. The Windows Firewall rule is restricted to the Private profile and local subnet. This uses HTTP without encryption, so do not forward the port to the internet or use it on an untrusted network.
+
 ## What works
 
 - NASA PSI-69 / FLEX source table subset, five publicly displayed rows, CSV export and DOI-linked metadata.
@@ -67,7 +71,7 @@ Supported server-side settings: `GEMINI_API_KEY`, `NASA_FIRMS_MAP_KEY`, `NASA_AP
 
 NASA FIRMS area API bounds source requests to VIIRS_SNPP_NRT, 1–5 days, caller-selected coordinates, and local rate limiting. The upstream quota and returned-record cap apply. NOAA and FIRMS connectivity may fail independently without affecting the bundled FLEX analysis.
 
-**Security note:** `start.ps1` can read `New Text Document (2).txt` from the current user's Desktop. That file is not copied into the project or ZIP. Since provider credentials were shared as attachments during setup, rotate/revoke active keys and update the local credential file before relying on them. Gemini chat sends the question, up to eight recent turns, and the bundled public FLEX subset to Google's API. Do not submit secrets or personal data. The server is localhost-only and has no user authentication; do not expose it to a network as-is. See [SECURITY.md](SECURITY.md).
+**Security note:** `start.ps1` can read `New Text Document (2).txt` from the current user's Desktop. That file is not copied into the project or ZIP. Since provider credentials were shared as attachments during setup, rotate/revoke active keys and update the local credential file before relying on them. Gemini chat sends the question, up to eight recent turns, and the bundled public FLEX subset to Google's API. Do not submit secrets or personal data. The default Node/Docker deployment remains loopback-only unless explicitly configured; the Windows LAN launcher enforces a generated access token and restricts firewall access to the private subnet, but its HTTP traffic is not encrypted. Do not expose it to the public internet. See [SECURITY.md](SECURITY.md).
 
 ## Known limitations
 
@@ -109,7 +113,7 @@ NASA FIRMS area API bounds source requests to VIIRS_SNPP_NRT, 1–5 days, caller
 | Arabic interface | Partially implemented (RTL shell and controls; scientific copy remains English) |
 | Habitat module | No-data research boundary implemented; telemetry integration not implemented |
 | Quantum research | Small classical statevector demonstration only |
-| Authentication/database/multi-user access | Not implemented |
+| LAN authentication | Implemented for Windows launcher with random per-host access token and HttpOnly session; no user roles or per-user database isolation |
 | Container build / CI | Dockerfile and CI workflow provided; container deployment not run |
 
 ## Verification (final build)

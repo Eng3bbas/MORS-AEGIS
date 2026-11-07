@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import net from 'node:net';
+import os from 'node:os';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 
@@ -17,7 +18,9 @@ test('network mode requires a session before static or API access', {timeout:200
   const child=spawn(process.execPath,['server.mjs'],{cwd,env:{...process.env,HOST:'0.0.0.0',PORT:String(port),MORS_ALLOW_NETWORK_BIND:'1',MORS_ACCESS_TOKEN:token,MORS_DISABLE_CREDENTIALS:'1'},stdio:['ignore','pipe','pipe']});
   t.after(()=>child.kill());
   await Promise.race([once(child.stdout,'data'),once(child,'exit').then(()=>{throw new Error('Server exited before ready')})]);
-  const base=`http://127.0.0.1:${port}`;
+  const lanAddress=Object.values(os.networkInterfaces()).flat().find(item=>item?.family==='IPv4'&&!item.internal)?.address;
+  assert.ok(lanAddress,'A private IPv4 interface is required for the LAN authentication test.');
+  const base=`http://${lanAddress}:${port}`;
   assert.equal((await fetch(`${base}/api/health`)).status,401);
   assert.equal((await fetch(`${base}/`)).status,401);
   const bad=await fetch(`${base}/api/auth`,{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:'token=wrong',redirect:'manual'});
