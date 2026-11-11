@@ -21,7 +21,7 @@ test('catalog recovers after a transient database-open failure', {timeout:20000}
     await rmdir(blocked);
     const response=await fetch(url);
     assert.equal(response.status,200);
-    assert.equal((await response.json()).datasets[0].id,'PSI-69-subset');
+    assert.equal((await response.json()).datasets[0].id,'PSI-69');
   } finally {
     child.kill();
     if (child.exitCode===null) await once(child,'exit');

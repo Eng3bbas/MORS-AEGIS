@@ -4,7 +4,7 @@ import { summarize, validate } from '../../ms05-analysis/analysis.mjs';
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 export const MEASUREMENTS = Object.freeze({
   initial_droplet_diameter_mm: 'mm', visible_flame_extinction_diameter_mm: 'mm',
-  burning_rate_mm_s: 'mm/s', burn_time_s: 's', pressure_mmHg: 'mmHg',
+  burning_rate_mm_s: 'mm²/s', burn_time_s: 's', pressure_mmHg: 'mmHg',
   oxygen_mole_fraction: '1'
 });
 const validRecord = row => row && typeof row === 'object' && typeof row.id === 'string';
@@ -15,7 +15,7 @@ export function compareExperiments(a, b, measurement = 'burning_rate_mm_s') {
   const reasons = [];
   if (a.id === b.id) reasons.push('Select two distinct experiment identifiers.');
   if (!Number.isFinite(a[measurement]) || !Number.isFinite(b[measurement])) reasons.push('One or both measurements are missing or nonnumeric.');
-  for (const key of ['fuel','oxygen_mole_fraction','nitrogen_mole_fraction']) {
+  for (const key of ['fuel','oxygen_mole_fraction','nitrogen_mole_fraction','carbon_dioxide_mole_fraction','helium_mole_fraction']) {
     if (a[key] == null || b[key] == null) reasons.push(`${key} metadata missing.`);
     else if (a[key] !== b[key]) reasons.push(`${key} differs between experiments.`);
   }
@@ -23,7 +23,8 @@ export function compareExperiments(a, b, measurement = 'burning_rate_mm_s') {
   if (reasons.length) return { status: 'unsupported', reasons, measurement, unit: MEASUREMENTS[measurement] };
   const pressureDifference = Math.abs(a.pressure_mmHg - b.pressure_mmHg);
   const conditions = { fuel: a.fuel, oxygenFraction: a.oxygen_mole_fraction,
-    nitrogenFraction: a.nitrogen_mole_fraction, pressureDifferenceMmHg: pressureDifference };
+    nitrogenFraction: a.nitrogen_mole_fraction, carbonDioxideFraction: a.carbon_dioxide_mole_fraction,
+    heliumFraction: a.helium_mole_fraction, pressureDifferenceMmHg: pressureDifference };
   return {
     status: 'partial', measurement, unit: MEASUREMENTS[measurement],
     a: { id:a.id, value:a[measurement] }, b: { id:b.id, value:b[measurement] },
@@ -34,7 +35,7 @@ export function compareExperiments(a, b, measurement = 'burning_rate_mm_s') {
   };
 }
 
-export function runAnalysis(rows, { variable = 'burning_rate_mm_s', selectedIds = null, datasetId = 'PSI-69-subset', datasetVersion = null, question = '' } = {}) {
+export function runAnalysis(rows, { variable = 'burning_rate_mm_s', selectedIds = null, datasetId = 'PSI-69', datasetVersion = null, question = '' } = {}) {
   if (!Object.hasOwn(MEASUREMENTS,variable)) throw new Error('Unknown or unsupported measurement.');
   const quality = validate(rows);
   if (!quality.valid) throw new Error(`Invalid input: ${quality.errors.slice(0,3).join('; ')}`);
@@ -53,11 +54,11 @@ export function runAnalysis(rows, { variable = 'burning_rate_mm_s', selectedIds 
   return { question: question.slice(0,500), evidence:'COMPUTED', input, result,
     uncertainty:'Sample SD represents observed spread, not sensor uncertainty.',
     interpretation:'Descriptive for the selected records only.',
-    limitations:['Bundled subset is small and selected.','No instrument uncertainty supplied.','No causal or population inference.'],
+    limitations:['Pooled records mix fuels, pressures and diluents; filter by condition before interpreting.','No instrument uncertainty supplied.','No causal or population inference.'],
     recipe };
 }
 
-export function replayAnalysis(rows, saved, currentDatasetVersion = null, currentDatasetId = 'PSI-69-subset') {
+export function replayAnalysis(rows, saved, currentDatasetVersion = null, currentDatasetId = 'PSI-69') {
   if (!saved?.recipe || ![1,2].includes(saved.recipe.version)) throw new Error('Unsupported or missing replay recipe.');
   const {variable,selectedIds,datasetId,datasetVersion,inputSha256,resultSha256} = saved.recipe;
   if (!saved.result || typeof saved.result !== 'object' || Array.isArray(saved.result)) throw new Error('Saved result is missing.');
@@ -105,7 +106,7 @@ export function scientificChallenge(rows, { question, variable = null, selectedI
   return { status:'completed-with-limits', hypothesis:{classification:'HYPOTHESIS',text:`The reported ${chosenVariable} may vary with experimental conditions; this requires a larger controlled dataset.`,supported:false},
     stages:[
       {stage:'Question',status:'complete',evidence:question},
-      {stage:'Dataset discovery',status:'complete',evidence:'Bundled PSI-69 five-row extract only'},
+      {stage:'Dataset discovery',status:'complete',evidence:`Bundled PSI-69 experimental table (${rows.length} records)`},
       {stage:'Suitability',status:'partial',evidence:'Valid numeric records; no population or controlled sample'},
       {stage:'Analysis',status:'complete',evidence:comparison || analysis.result},
       {stage:'Independent interpretation',status:'limited',evidence:'No independent source-row verification or uncertainty model'},

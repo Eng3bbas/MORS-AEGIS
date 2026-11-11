@@ -1,0 +1,2 @@
+# Raw upstream files must stay byte-identical to the NASA download (checksummed in tests).
+ms02-connectors/raw/** -text

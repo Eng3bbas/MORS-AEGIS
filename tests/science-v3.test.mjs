@@ -12,10 +12,10 @@ test('portable SQLite catalog keeps exact bundled records and checksum',async()=
   let db;
   try {
     db=await openCatalog(path.join(dir,'mors.sqlite'));
-    const first=await ingestBundledFlex(db), again=await ingestBundledFlex(db);
+    const first=await ingestBundledFlex(db,'PSI-69-subset'), again=await ingestBundledFlex(db,'PSI-69-subset');
     assert.equal(first.records,5); assert.equal(again.changed,false);
     assert.match(first.version,/^[a-f0-9]{64}$/);
-    const records=getExperiments(db); assert.equal(records.length,5);
+    const records=getExperiments(db,'PSI-69-subset'); assert.equal(records.length,5);
     assert.equal(records[3].visible_flame_extinction_diameter_mm,null);
     assert.match(records[0].row_sha256,/^[a-f0-9]{64}$/);
     assert.match(listCatalog(db)[0].provenance_status,/not independently reverified/);
@@ -26,7 +26,7 @@ test('comparability rejects differing fuel, missing values and equivalence claim
   assert.equal(compareExperiments(rows[0],{...rows[1],fuel:'Ethanol'}).status,'unsupported');
   assert.equal(compareExperiments(rows[0],rows[3],'visible_flame_extinction_diameter_mm').status,'unsupported');
   const result=compareExperiments(rows[0],rows[1]);
-  assert.equal(result.status,'partial'); assert.equal(result.unit,'mm/s'); assert.ok(Math.abs(result.difference-0.08)<1e-12);
+  assert.equal(result.status,'partial'); assert.equal(result.unit,'mm²/s'); assert.ok(Math.abs(result.difference-0.08)<1e-12);
   assert.match(result.reasons.join(' '),/does not establish experimental equivalence/);
 });
 test('analysis replay reproduces checksum and detects changed source measurements',async()=>{

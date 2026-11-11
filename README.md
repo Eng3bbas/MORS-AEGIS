@@ -1,6 +1,6 @@
 # MORS AEGIS
 
-MORS AEGIS 3.0 alpha is a local scientific research application centered on a five-record FLEX table extract. It combines traceable analysis, a portable SQLite catalogue, image pixel measurements, optional real FIRMS observations and a research chatbot. Scientific and deployment limits are recorded in `docs/FINAL_VERIFICATION.md`.
+MORS AEGIS 3.0 alpha is a local scientific research application centered on the official NASA PSI-69 FLEX experimental table (274 droplet-combustion tests). It combines traceable analysis, a portable SQLite catalogue, image pixel measurements, optional real FIRMS observations and a research chatbot. Scientific and deployment limits are recorded in `docs/FINAL_VERIFICATION.md`.
 
 ## Run it
 
@@ -14,7 +14,7 @@ The self-contained Windows x64 package is built with `scripts/build-windows.ps1`
 
 ## What works
 
-- NASA PSI-69 / FLEX source table subset, five publicly displayed rows, CSV export and DOI-linked metadata.
+- Full NASA PSI-69 / FLEX experimental table (274 tests, methanol and heptane, varied pressure and O₂/N₂/CO₂/He atmospheres), CSV export and DOI-linked metadata. `npm run data:fetch` re-downloads it from NASA; every correction made during normalization is listed in `ms02-connectors/flex-psi69-quality.json`.
 - Schema/range validation, null-aware descriptive statistics, a paired Pearson calculation, and a ten-role typed research workflow.
 - Browser charts, source table, comparison view, evidence ledger, local CSV upload, report JSON/CSV export and print-to-PDF.
 - Gemini Interactions API Copilot (server-side key handling) with a grounded evidence context; a clearly labeled deterministic offline response if unavailable.
@@ -26,7 +26,7 @@ The self-contained Windows x64 package is built with `scripts/build-windows.ps1`
 
 ## Scientific scope
 
-The five CSV rows are from the PSI-69 FLEX table visible on the official [NASA investigation page](https://psi.nasa.gov/physci/repo/data/investigations/PSI-69). The page identifies DOI [10.60555/mbq8-0451](https://doi.org/10.60555/mbq8-0451) and a CC0-1.0 license. The bundled subset is not the full PSI archive and is not representative by design. It is sufficient to demonstrate parsing and descriptive calculations, not confirmatory inference. The full record may include additional assets and file-level metadata that this build has not retrieved.
+The bundled table is the official PSI-69 experimental table, downloaded from the [NASA investigation page](https://psi.nasa.gov/physci/repo/data/investigations/PSI-69) (DOI [10.60555/mbq8-0451](https://doi.org/10.60555/mbq8-0451), CC0-1.0). The unmodified NASA file is kept in `ms02-connectors/raw/`; `ms02-connectors/normalize-psi69.mjs` converts it to the app schema and records 39 documented corrections (placeholder dashes → missing, `~6` → 6 flagged approximate, one zero pressure → missing, one duplicated identifier disambiguated). Interpretation choices: the export's flattened gas headers are read as O₂, N₂, CO₂ and He, and "Burning rate; mm" is the d²-law burning-rate constant in mm²/s. The original five-row extract is kept as a small test fixture (`PSI-69-subset`) and matches the first five rows exactly. Tests pool different fuels, pressures and diluents, so pooled statistics are descriptive only; comparisons are refused when fuel or gas composition differ. Raw imagery and other archive assets are not mirrored.
 
 Evidence tiers are OBSERVED, COMPUTED, INFERRED, HYPOTHESIS, and SIMULATED. The implementation does not label an AI response or quantum toy example as a measurement. A satellite hotspot is not a fire perimeter. Habitat values are not fabricated. Quantum arithmetic uses a classical CPU simulation and is unrelated to the combustion analysis.
 
@@ -43,9 +43,11 @@ Browser SPA (public/)
   └─ /api/copilot ──────── Gemini Interactions API, bounded evidence context
 ```
 
+Server code: `server.mjs` (entry, routing table, static files) → `src/server/config.mjs` (env and credentials, read once at startup), `http.mjs` (headers, body limits, origin checks, rate limits, cache), `auth.mjs` (LAN token gate), `dataset.mjs` (catalogue loaded once per process), and `routes/` (`data`, `research`, `feeds`, `copilot`). Restart the server after changing `.env` or the credentials file. Frontend shared helpers live in `public/lib/`.
+
 | MORS module | Responsibility |
 |---|---|
-| ms01 Core Platform | `server.mjs`, HTTP routing, validation boundaries, rate limits |
+| ms01 Core Platform | `server.mjs` + `src/server/`, HTTP routing, validation boundaries, rate limits |
 | ms02 Scientific Data Connectors | PSI table and source registry; NASA FIRMS/NOAA adapters |
 | ms03 Microgravity Combustion | FLEX lab views in `public/app.js` |
 | ms04 Scientific Computer Vision | Status is visible; blocked because no source imagery was ingested |
@@ -75,7 +77,7 @@ NASA FIRMS area API bounds source requests to VIIRS_SNPP_NRT, 1–5 days, caller
 
 ## Known limitations
 
-- The source extract contains five displayed table rows, not a complete PSI experiment dataset. Full raw/analyzed data retrieval and file-level metadata remain pending.
+- The experimental table is complete, but raw imagery, video and other PSI-69 archive files are not mirrored, and no instrument uncertainty is supplied.
 - No FLEX imagery was downloaded; computer vision is not implemented.
 - The workflow is one local orchestrator calling deterministic stage functions. The copilot is generative; this is not a distributed team of autonomous model agents or a model-voting scientific council.
 - Browser plots are lightweight SVG/canvas, not ECharts/Plotly. No 3D content is needed for this evidence scope.
@@ -100,7 +102,7 @@ NASA FIRMS area API bounds source requests to VIIRS_SNPP_NRT, 1–5 days, caller
 | Feature | Status |
 |---|---|
 | Local web app and API | Implemented; verified by smoke test |
-| Five-row NASA PSI-69 source extract and citations | Implemented; source page and DOI identified; full archive not retrieved |
+| NASA PSI-69 experimental table (274 tests) and citations | Implemented; reproducible download, checksummed raw file, documented normalization |
 | Descriptive science and null handling | Implemented and tested |
 | Computer vision | Not implemented; imagery unavailable |
 | Gemini chat Copilot | Chatbot UI and server connector implemented; credential detected; initial provider request returned HTTP 503; deterministic fallback verified |

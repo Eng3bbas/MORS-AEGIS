@@ -1,8 +1,16 @@
 {
   "name": "mors-aegis",
-  "version": "3.0.0-alpha.1",
+  "version": "3.0.0-alpha.2",
   "private": true,
   "type": "module",
-  "scripts": { "start": "node server.mjs", "dev": "node --watch server.mjs", "test": "node --test" },
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs",
+    "test": "node --test",
+    "data:fetch": "node scripts/fetch-psi69.mjs",
+    "data:normalize": "node scripts/fetch-psi69.mjs --offline",
+    "format": "npx --yes prettier@3 --write public/app.js public/lib",
+    "format:check": "npx --yes prettier@3 --check public/app.js public/lib"
+  },
   "engines": { "node": ">=22.13" }
 }
