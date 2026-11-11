@@ -1,4 +1,4 @@
-test,id,date,time_utc,fuel,pressure_mmHg,oxygen_mole_fraction,nitrogen_mole_fraction,carbon_monoxide_mole_fraction,helium_mole_fraction,initial_droplet_diameter_mm,visible_flame_extinction_diameter_mm,burning_rate_mm_s,burn_time_s,test_end
+test,id,date,time_utc,fuel,pressure_mmHg,oxygen_mole_fraction,nitrogen_mole_fraction,carbon_dioxide_mole_fraction,helium_mole_fraction,initial_droplet_diameter_mm,visible_flame_extinction_diameter_mm,burning_rate_mm_s,burn_time_s,test_end
 1,20CAL08,2009-03-05,17:22:03,Methanol,757.7,0.21,0.79,0,0,1.69,0.89,0.52,4.3,Disruption
 2,20CAL10,2009-03-05,19:20:06,Methanol,762,0.21,0.79,0,0,1.86,0.94,0.6,5,Extinction
 3,20CAL12,2009-03-05,21:17:46,Methanol,764.2,0.21,0.79,0,0,1.61,0.92,0.58,3.2,Extinction

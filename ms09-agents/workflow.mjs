@@ -1,9 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { readFlex, summarize, validate } from '../ms05-analysis/analysis.mjs';
+import { readFlex, readFlexFull, summarize, validate } from '../ms05-analysis/analysis.mjs';
 import { SOURCES } from '../ms02-connectors/registry.mjs';
-const canonical = rows => JSON.stringify(rows.map(row => Object.fromEntries(Object.entries(row).sort(([a],[b]) => a.localeCompare(b)))));
+// Order-independent: the catalogue returns rows by date, the CSV in source order.
+const canonical = rows => JSON.stringify(rows.map(row => JSON.stringify(Object.fromEntries(Object.entries(row).sort(([a],[b]) => a.localeCompare(b))))).sort());
 const digest = rows => createHash('sha256').update(canonical(rows)).digest('hex');
-const bundledDigest = digest(await readFlex());
+// Digests of the bundled NASA tables; only exact matches inherit NASA provenance.
+const bundledDigests = new Set([digest(await readFlex()), digest(await readFlexFull())]);
 const roles = ['Chief orchestrator','Product innovation','Software architecture','Frontend engineering','UI/UX design','Scientific visualization','Scientific data','Computational science','AI/ML research','Scientific peer review','Cybersecurity','Quality engineering','Independent code review','Reliability engineering','Competition experience','Quantum review'];
 export const AGENT_ROLES = roles.map((name,id) => ({id:String(id).padStart(2,'0'),name,execution:'role contract; no independent model invoked',permissions:['read supplied public records','produce structured recommendations'],denied:['network access','credential access','filesystem writes','external actions'],reviewer:id===9?'00':'09'}));
 export function independentReview(rows, summary) {
@@ -24,11 +26,11 @@ export function independentReview(rows, summary) {
 export function runWorkflow(rows) {
   const quality=validate(rows), stats=quality.valid?summarize(rows):null;
   const review=quality.valid?independentReview(rows,stats):{accepted:false,findings:quality.errors.map(issue=>({severity:'high',issue,action:'Correct source record, retain original, rerun workflow.'}))};
-  const isBundled=quality.valid && digest(rows)===bundledDigest;
+  const isBundled=quality.valid && bundledDigests.has(digest(rows));
   const accepted=quality.valid && review.accepted;
   const timestamp=new Date().toISOString();
   return {runId:`AEGIS-${randomUUID()}`,status:accepted?'reviewed':'rejected',executionMode:'deterministic local functions; no autonomous LLM organization executed',roles:AGENT_ROLES,stages:[
-    {agent:'01 · Data Acquisition',status:'complete',detail:`Received ${Array.isArray(rows)?rows.length:0} records. ${isBundled?'Exact bundled FLEX extract identity matched.':'User-supplied source identity is unverified.'}`},
+    {agent:'01 · Data Acquisition',status:'complete',detail:`Received ${Array.isArray(rows)?rows.length:0} records. ${isBundled?'Exact bundled FLEX table identity matched.':'User-supplied source identity is unverified.'}`},
     {agent:'02 · Data Quality',status:quality.valid?'complete':'failed',detail:`Schema, finite values, dates and ranges checked; ${quality.errors.length} errors, ${quality.warnings.length} warnings.`},
     {agent:'03 · Scientific Analysis',status:quality.valid?'complete':'blocked',detail:quality.valid?'Computed null-aware descriptive statistics.':'Analysis withheld pending data correction.'},
     {agent:'04 · Computer Vision',status:'not-run',detail:'No calibrated imagery supplied.'},

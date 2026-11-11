@@ -52,7 +52,7 @@ test('isolated backend contract and defensive boundaries', { timeout: 20000 }, a
   });
   await t.test('Copilot has honest deterministic fallback without credentials', async () => {
     const r = await fetch(`${base}/api/copilot`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"question":"Mean burning rate?"}' });
-    const j = await r.json(); assert.equal(j.status, 'offline-fallback'); assert.match(j.answer, /0\.556/); assert.match(j.citation, /psi\.nasa\.gov/);
+    const j = await r.json(); assert.equal(j.status, 'offline-fallback'); assert.match(j.answer, /0\.502/); assert.match(j.answer, /n=258/); assert.match(j.citation, /psi\.nasa\.gov/);
     const record = await (await fetch(`${base}/api/copilot`, { method:'POST', headers:{'content-type':'application/json'}, body:'{"question":"What was the pressure in 20CAL08?"}' })).json();
     assert.equal(record.toolsExecuted[0].tool,'lookupExperiment'); assert.match(record.answer,/20CAL08/); assert.equal(record.analysis,null);
     const unrelated = await (await fetch(`${base}/api/copilot`, { method:'POST', headers:{'content-type':'application/json'}, body:'{"question":"What is the capital of France?"}' })).json();
@@ -64,6 +64,16 @@ test('isolated backend contract and defensive boundaries', { timeout: 20000 }, a
     assert.equal((await (await submit(analysis)).json()).matches,true);
     assert.equal((await (await submit({...analysis,result:{...analysis.result,mean:999}})).json()).matches,false);
     assert.equal((await (await submit({...analysis,recipe:{...analysis.recipe,datasetVersion:'fake-version'}})).json()).versionMatches,false);
+  });
+  await t.test('unknown API paths are 404 and wrong methods are 405', async () => {
+    assert.equal((await fetch(`${base}/api/does-not-exist`)).status, 404);
+    assert.equal((await fetch(`${base}/api/copilot`)).status, 405);
+  });
+  await t.test('full PSI-69 table is served by default', async () => {
+    const j = await (await fetch(`${base}/api/datasets/flex`)).json();
+    assert.equal(j.dataset.records, 274); assert.equal(j.validation.valid, true);
+    const catalog = await (await fetch(`${base}/api/catalog`)).json();
+    assert.deepEqual(catalog.datasets.map(d => d.id), ['PSI-69', 'PSI-69-subset']);
   });
   await t.test('FIRMS rejects global area before contacting provider', async () => {
     assert.equal((await fetch(`${base}/api/firms?bbox=-180,-80,180,80`)).status, 400);

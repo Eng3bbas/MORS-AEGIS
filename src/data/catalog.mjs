@@ -6,7 +6,16 @@ import { fileURLToPath } from 'node:url';
 import { parseCSV, validate } from '../../ms05-analysis/analysis.mjs';
 
 const SOURCE = 'https://psi.nasa.gov/physci/repo/data/investigations/PSI-69';
-const CSV = fileURLToPath(new URL('../../ms02-connectors/flex-psi69.csv', import.meta.url));
+const csvPath = name => fileURLToPath(new URL(`../../ms02-connectors/${name}`, import.meta.url));
+export const DEFAULT_DATASET = 'PSI-69';
+export const BUNDLED_DATASETS = Object.freeze({
+  'PSI-69': { file: csvPath('flex-psi69-full.csv'), title: 'FLEX experimental table (full)',
+    provenance: 'official PSI-69 experimental table; normalized with documented corrections (ms02-connectors/flex-psi69-quality.json)',
+    scope: 'All tests in the official PSI-69 experimental table; heterogeneous fuels, pressures and diluents' },
+  'PSI-69-subset': { file: csvPath('flex-psi69.csv'), title: 'FLEX table extract',
+    provenance: 'bundled transcription; upstream row values not independently reverified',
+    scope: 'Five selected table records; not the full archive' }
+});
 const DEFAULT_DB = fileURLToPath(new URL('../../var/mors.sqlite', import.meta.url));
 const hash = value => createHash('sha256').update(value).digest('hex');
 
@@ -31,34 +40,43 @@ export async function openCatalog(file = DEFAULT_DB) {
   return db;
 }
 
-export async function ingestBundledFlex(db) {
-  const raw = await readFile(CSV, 'utf8');
+/** Ingest every bundled dataset; unchanged datasets are skipped by checksum. */
+export async function ingestBundled(db) {
+  const results = [];
+  for (const id of Object.keys(BUNDLED_DATASETS)) results.push(await ingestBundledFlex(db, id));
+  return results;
+}
+
+export async function ingestBundledFlex(db, datasetId = DEFAULT_DATASET) {
+  const spec = BUNDLED_DATASETS[datasetId];
+  if (!spec) throw new Error(`Unknown bundled dataset ${datasetId}`);
+  const raw = await readFile(spec.file, 'utf8');
   const rows = parseCSV(raw);
   const quality = validate(rows);
-  if (!quality.valid) throw new Error(`Bundled FLEX extract failed validation: ${quality.errors.join('; ')}`);
+  if (!quality.valid) throw new Error(`Bundled ${datasetId} failed validation: ${quality.errors.join('; ')}`);
   const version = hash(raw);
-  const current = db.prepare('SELECT version_sha256 FROM datasets WHERE id = ?').get('PSI-69-subset');
-  if (current?.version_sha256 === version) return { datasetId: 'PSI-69-subset', version, records: rows.length, changed: false };
+  const current = db.prepare('SELECT version_sha256 FROM datasets WHERE id = ?').get(datasetId);
+  if (current?.version_sha256 === version) return { datasetId, version, records: rows.length, changed: false };
   db.exec('BEGIN IMMEDIATE');
   try {
     db.prepare('INSERT OR REPLACE INTO datasets VALUES (?,?,?,?,?,?,?,?)').run(
-      'PSI-69-subset', 'FLEX table extract', SOURCE, '10.60555/mbq8-0451', version,
-      'bundled transcription; upstream row values not independently reverified',
-      'Five selected table records; not the full archive', new Date().toISOString()
+      datasetId, spec.title, SOURCE, '10.60555/mbq8-0451', version, spec.provenance, spec.scope, new Date().toISOString()
     );
-    db.prepare('DELETE FROM experiments WHERE dataset_id = ?').run('PSI-69-subset');
+    db.prepare('DELETE FROM experiments WHERE dataset_id = ?').run(datasetId);
     const insert = db.prepare('INSERT INTO experiments VALUES (?,?,?,?,?,?,?,?,?,?)');
-    for (const row of rows) insert.run('PSI-69-subset', row.id, row.date, row.fuel, row.pressure_mmHg,
+    for (const row of rows) insert.run(datasetId, row.id, row.date, row.fuel, row.pressure_mmHg,
       row.oxygen_mole_fraction, row.nitrogen_mole_fraction, row.test_end, JSON.stringify(row), hash(JSON.stringify(row)));
     db.exec('COMMIT');
   } catch (error) { db.exec('ROLLBACK'); throw error; }
-  return { datasetId: 'PSI-69-subset', version, records: rows.length, changed: true };
+  return { datasetId, version, records: rows.length, changed: true };
 }
 
 export function listCatalog(db) {
   return db.prepare('SELECT id,title,source_url,doi,version_sha256,provenance_status,scope,ingested_at FROM datasets ORDER BY id').all();
 }
-export function getExperiments(db, datasetId = 'PSI-69-subset') {
-  const records = db.prepare('SELECT raw_json,row_sha256 FROM experiments WHERE dataset_id = ? ORDER BY date,id').all(datasetId);
+export function getExperiments(db, datasetId = DEFAULT_DATASET) {
+  const records = db.prepare(`SELECT raw_json,row_sha256 FROM experiments WHERE dataset_id = ?
+    ORDER BY date, json_extract(raw_json, '$.test'), id`)
+    .all(datasetId);
   return records.map(({raw_json,row_sha256}) => ({...JSON.parse(raw_json), row_sha256}));
 }

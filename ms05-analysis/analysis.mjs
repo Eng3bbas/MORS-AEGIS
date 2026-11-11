@@ -2,14 +2,14 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const CSV = fileURLToPath(new URL('../ms02-connectors/flex-psi69.csv', import.meta.url));
-const REQUIRED = [
-  'id', 'date', 'fuel', 'pressure_mmHg', 'oxygen_mole_fraction',
-  'nitrogen_mole_fraction', 'initial_droplet_diameter_mm',
-  'burning_rate_mm_s', 'burn_time_s', 'test_end'
-];
+const FULL_CSV = fileURLToPath(new URL('../ms02-connectors/flex-psi69-full.csv', import.meta.url));
+// Identity and test conditions must be present and non-empty.
+const REQUIRED = ['id', 'date', 'fuel', 'oxygen_mole_fraction', 'nitrogen_mole_fraction', 'test_end'];
+// Measurements must be present as columns but may be null (not every FLEX test yielded every measurement).
+const MEASURED = ['pressure_mmHg', 'initial_droplet_diameter_mm', 'burning_rate_mm_s', 'burn_time_s'];
 const NUMERIC = [
   'test', 'pressure_mmHg', 'oxygen_mole_fraction', 'nitrogen_mole_fraction',
-  'carbon_monoxide_mole_fraction', 'helium_mole_fraction',
+  'carbon_dioxide_mole_fraction', 'helium_mole_fraction',
   'initial_droplet_diameter_mm', 'visible_flame_extinction_diameter_mm',
   'burning_rate_mm_s', 'burn_time_s', 'latitude', 'longitude',
   'bright_ti4', 'scan', 'track', 'acq_time', 'bright_ti5', 'frp'
@@ -18,7 +18,7 @@ const UNITS = {
   pressure_mmHg: 'mmHg', oxygen_mole_fraction: '1',
   initial_droplet_diameter_mm: 'mm',
   visible_flame_extinction_diameter_mm: 'mm',
-  burning_rate_mm_s: 'mm/s', burn_time_s: 's'
+  burning_rate_mm_s: 'mm²/s', burn_time_s: 's'
 };
 
 // RFC 4180-compatible parser for quoted fields, escaped quotes and embedded newlines.
@@ -70,8 +70,13 @@ export function parseCSV(text, { allowEmpty = false } = {}) {
   });
 }
 
+/** Five-row extract shown on the PSI page; kept as a small, hand-checkable fixture. */
 export async function readFlex() {
   return parseCSV(await readFile(CSV, 'utf8'));
+}
+/** Full official PSI-69 experimental table, normalized by scripts/fetch-psi69.mjs. */
+export async function readFlexFull() {
+  return parseCSV(await readFile(FULL_CSV, 'utf8'));
 }
 
 export function validate(rows) {
@@ -90,6 +95,7 @@ export function validate(rows) {
       if (!(key in row)) errors.push(`${label}: missing required field ${key}.`);
       else if (row[key] === null || (typeof row[key] === 'string' && !row[key].trim())) errors.push(`${label}: required field ${key} is empty.`);
     }
+    for (const key of MEASURED) if (!(key in row)) errors.push(`${label}: missing measurement column ${key}.`);
     for (const key of ['id', 'date', 'fuel', 'test_end']) {
       if (key in row && typeof row[key] !== 'string') errors.push(`${label}: ${key} must be text.`);
     }
@@ -105,13 +111,13 @@ export function validate(rows) {
         errors.push(`${label}: ${key} cannot be negative.`);
       }
     }
-    for (const key of ['oxygen_mole_fraction', 'nitrogen_mole_fraction', 'carbon_monoxide_mole_fraction', 'helium_mole_fraction']) {
+    for (const key of ['oxygen_mole_fraction', 'nitrogen_mole_fraction', 'carbon_dioxide_mole_fraction', 'helium_mole_fraction']) {
       if (typeof row[key] === 'number' && (row[key] < 0 || row[key] > 1)) errors.push(`${label}: ${key} must be between 0 and 1.`);
     }
     for (const key of ['pressure_mmHg', 'initial_droplet_diameter_mm', 'burning_rate_mm_s', 'burn_time_s']) {
       if (typeof row[key] === 'number' && row[key] <= 0) errors.push(`${label}: ${key} must be greater than zero.`);
     }
-    const gas = ['oxygen_mole_fraction', 'nitrogen_mole_fraction', 'carbon_monoxide_mole_fraction', 'helium_mole_fraction'].map(k => row[k]);
+    const gas = ['oxygen_mole_fraction', 'nitrogen_mole_fraction', 'carbon_dioxide_mole_fraction', 'helium_mole_fraction'].map(k => row[k]);
     if (gas.every(Number.isFinite) && Math.abs(gas.reduce((a, b) => a + b, 0) - 1) > 0.02) {
       warnings.push(`${label}: reported gas fractions sum to ${gas.reduce((a, b) => a + b, 0).toFixed(3)}, outside the 0.02 tolerance.`);
     }
