@@ -34,7 +34,7 @@ function panelsHTML(data, fuel, diluent) {
       );
       if (!set.length) continue;
       panels.push(
-        `<article class="card"><div class="card-head"><div><h3>${esc(f.label)} · ${esc(DILUENT_NAMES[d.id] || d.id)}</h3><p class="sub">${set.reduce((s, g) => s + g.n, 0)} tests · hover a point for its record</p></div><span class="tag inf">INFERRED BAND</span></div>${flammabilitySVG(set, data.pressureBands, `${f.id}-${d.id}`.replace(/[^a-z0-9-]/gi, ''))}</article>`,
+        `<article class="card"><div class="card-head"><div><h3>${esc(f.label)} · ${esc(DILUENT_NAMES[d.id] || d.id)}</h3><p class="sub">${set.reduce((s, g) => s + g.n, 0)} tests · hover a point for its record</p></div><span class="tag inf">INFERRED BAND</span></div>${flammabilitySVG(set, data.pressureBands, `${f.id}-${d.id}`.replace(/[^a-z0-9-]/gi, ''))}<p class="sub flam-note">x: ambient pressure band. Tests at the same O₂ in one band are spread sideways so none are hidden; that offset is not a pressure difference.</p></article>`,
       );
     }
   }

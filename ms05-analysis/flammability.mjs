@@ -93,7 +93,7 @@ export function loiBracket(points) {
   };
   return {
     ...base, status: 'overlapping', overlap: { from: lowestSustained, to: highestNotSustained },
-    reason: `Outcomes overlap between O₂ ${lowestSustained} and ${highestNotSustained}: tests extinguished at or above the lowest O₂ where one burned to completion. O₂ alone does not separate the outcomes here; sustained burning at ${lowestSustained} only shows the LOI is at most ${lowestSustained}.`
+    reason: `Outcomes overlap ${lowestSustained === highestNotSustained ? `at O₂ ${lowestSustained}` : `between O₂ ${lowestSustained} and ${highestNotSustained}`}: tests extinguished at or above the lowest O₂ where one burned to completion. O₂ alone does not separate the outcomes here; sustained burning at ${lowestSustained} only shows the LOI is at most ${lowestSustained}.`
   };
 }
 

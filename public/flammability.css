@@ -1,14 +1,19 @@
 /* Flammability Map page. Outcome colours validated for CVD separation on the light and Deep Space surfaces. */
 :root { --flam-sus: #2a6fdb; --flam-ext: #d9711c; }
 .theme-space { --flam-sus: #4a8ae8; --flam-ext: #d97424; }
-.flam-grid { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
-.flam-chart { height: auto; aspect-ratio: 660 / 320; }
+.flam-grid { grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); }
+.flam-chart { height: auto; aspect-ratio: 660 / 330; }
 .flam-legend { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-size: 10px; color: var(--muted); margin: 0 0 13px; }
 .flam-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .flam-key { display: inline-block; width: 22px; height: 10px; border-radius: 2px; }
 .flam-key.bracket { background: color-mix(in srgb, var(--flam-sus) 18%, transparent); border-top: 1px dashed var(--flam-sus); border-bottom: 1px dashed var(--flam-ext); }
 .flam-key.overlap { background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--muted) 45%, transparent) 0 2px, transparent 2px 5px); border: 1px solid color-mix(in srgb, var(--muted) 50%, transparent); }
-.flam-reason, .flam-ids { white-space: normal; min-width: 260px; line-height: 1.5; }
+.flam-reason, .flam-ids { min-width: 200px; line-height: 1.5; }
+#flamSummary table, #flamLevels table { white-space: normal; }
+#flamSummary tbody th, #flamLevels tbody th { font: 600 10px Manrope, sans-serif; color: var(--ink); text-transform: none; letter-spacing: 0; min-width: 110px; }
+#flamInterpretation .list-row small { color: var(--muted); font-size: 10px; text-align: right; max-width: 60%; line-height: 1.5; }
+.flam-note { margin-top: 6px !important; }
+.toolbar .field-label { display: inline; margin: 0 0 0 4px; }
 .flam-list { margin: 8px 0 0; padding-left: 18px; font-size: 10px; line-height: 1.7; color: var(--ink); }
 .callout ul { margin: 6px 0 0; padding-left: 18px; }
 .flam-pt:hover circle[fill="transparent"] { stroke: var(--ink); stroke-opacity: .35; }

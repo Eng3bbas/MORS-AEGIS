@@ -50,7 +50,9 @@ test('overlapping outcomes are reported as overlap, not as a bracket', () => {
   assert.equal(b.interval, null);
   assert.deepEqual(b.overlap, { from: 0.18, to: 0.21 });
   // Same O2 with both outcomes also overlaps.
-  assert.equal(loiBracket([pt(0.2, 'sustained'), pt(0.2, 'not-sustained')]).status, 'overlapping');
+  const same = loiBracket([pt(0.2, 'sustained'), pt(0.2, 'not-sustained')]);
+  assert.equal(same.status, 'overlapping'); assert.match(same.reason, /^Outcomes overlap at O₂ 0\.2:/);
+  assert.match(b.reason, /between O₂ 0\.18 and 0\.21/);
 });
 
 test('one-sided or empty data are not bracketed', () => {

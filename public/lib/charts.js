@@ -33,8 +33,8 @@ export function outcomeMark(reading, x, y, r = 4.2) {
 const o2fmt = (v) => (Number.isFinite(v) ? v.toFixed(2) : '—');
 export function flammabilitySVG(groups, bands, uid, domain = [0.1, 0.36]) {
   const w = 660,
-    h = 320,
-    p = { l: 50, r: 10, t: 30, b: 50 },
+    h = 330,
+    p = { l: 56, r: 10, t: 34, b: 48 },
     colW = (w - p.l - p.r) / bands.length,
     [lo, hi] = domain,
     yy = (v) => h - p.b - ((v - lo) / (hi - lo)) * (h - p.t - p.b),
@@ -43,7 +43,7 @@ export function flammabilitySVG(groups, bands, uid, domain = [0.1, 0.36]) {
   const grid = ticks
     .map(
       (v) =>
-        `<line x1="${p.l}" y1="${yy(v)}" x2="${w - p.r}" y2="${yy(v)}" stroke="var(--line)" stroke-dasharray="2 4"/><text x="${p.l - 7}" y="${yy(v) + 3}" text-anchor="end" fill="var(--muted)" font-size="9">${v.toFixed(2)}</text>`,
+        `<line x1="${p.l}" y1="${yy(v)}" x2="${w - p.r}" y2="${yy(v)}" stroke="var(--line)" stroke-dasharray="2 4"/><text x="${p.l - 7}" y="${yy(v) + 4}" text-anchor="end" fill="var(--muted)" font-size="11">${v.toFixed(2)}</text>`,
     )
     .join('');
   const columns = bands
@@ -52,12 +52,12 @@ export function flammabilitySVG(groups, bands, uid, domain = [0.1, 0.36]) {
         cx = x0 + colW / 2,
         g = groups.find((x) => x.condition.pressureBand === band.id),
         sep = i ? `<line x1="${x0}" y1="${p.t}" x2="${x0}" y2="${h - p.b}" stroke="var(--line)"/>` : '',
-        foot = `<text x="${cx}" y="${h - p.b + 16}" text-anchor="middle" fill="var(--ink)" font-size="10">${esc(band.label)}</text>`;
+        foot = `<text x="${cx}" y="${h - p.b + 18}" text-anchor="middle" fill="var(--ink)" font-size="12" font-weight="600">${esc(band.label)}</text>`;
       if (!g)
-        return `${sep}${foot}<text x="${cx}" y="${h - p.b + 29}" text-anchor="middle" fill="var(--muted)" font-size="9">no tests</text>`;
+        return `${sep}${foot}<text x="${cx}" y="${h - p.b + 33}" text-anchor="middle" fill="var(--muted)" font-size="11">no tests</text>`;
       const pr = g.pressureRange,
         b = g.bracket,
-        sub = `<text x="${cx}" y="${h - p.b + 29}" text-anchor="middle" fill="var(--muted)" font-size="9">n=${g.n} · ${pr ? `${Math.round(pr.min)}–${Math.round(pr.max)} mmHg` : 'pressure missing'}</text>`;
+        sub = `<text x="${cx}" y="${h - p.b + 33}" text-anchor="middle" fill="var(--muted)" font-size="11">n=${g.n} · ${pr ? `${Math.round(pr.min)}–${Math.round(pr.max)} mmHg` : 'pressure missing'}</text>`;
       let shade = '',
         status;
       if (b.status === 'bracketed') {
@@ -69,9 +69,12 @@ export function flammabilitySVG(groups, bands, uid, domain = [0.1, 0.36]) {
         const y1 = yy(b.overlap.to) - 4,
           y2 = yy(b.overlap.from) + 4;
         shade = `<rect x="${x0 + 4}" y="${y1}" width="${colW - 8}" height="${y2 - y1}" fill="url(#hatch-${uid})"/><rect x="${x0 + 4}" y="${y1}" width="${colW - 8}" height="${y2 - y1}" fill="none" stroke="var(--muted)" stroke-opacity=".5"/>`;
-        status = `Outcomes overlap ${o2fmt(b.overlap.from)}–${o2fmt(b.overlap.to)}`;
+        status =
+          b.overlap.from === b.overlap.to
+            ? `Outcomes overlap at ${o2fmt(b.overlap.from)}`
+            : `Outcomes overlap ${o2fmt(b.overlap.from)}–${o2fmt(b.overlap.to)}`;
       } else status = 'Not bracketed';
-      const head = `<text x="${cx}" y="${p.t - 10}" text-anchor="middle" fill="var(--ink)" font-size="9.5" font-weight="700">${esc(status)}<title>${esc(b.reason)}</title></text>`;
+      const head = `<text x="${cx}" y="${p.t - 12}" text-anchor="middle" fill="var(--ink)" font-size="12" font-weight="700">${esc(status)}<title>${esc(b.reason)}</title></text>`;
       const rows = new Map();
       for (const pt of g.points)
         if (Number.isFinite(pt.oxygen)) (rows.get(pt.oxygen) || rows.set(pt.oxygen, []).get(pt.oxygen)).push(pt);
@@ -79,13 +82,13 @@ export function flammabilitySVG(groups, bands, uid, domain = [0.1, 0.36]) {
       const marks = [...rows.values()]
         .map((pts) => {
           pts.sort((a, b) => order[a.reading] - order[b.reading]);
-          const step = Math.min(10, (colW - 16) / Math.max(1, pts.length - 1));
+          const step = Math.min(11, (colW - 16) / Math.max(1, pts.length - 1));
           return pts
             .map((pt, k) => {
               const x = cx + (k - (pts.length - 1) / 2) * step,
                 y = yy(pt.oxygen);
               const tip = `${pt.id} · ${pt.pressure_mmHg ?? '—'} mmHg · O₂ ${pt.oxygen} · CO₂ ${pt.carbon_dioxide ?? '—'} · He ${pt.helium ?? '—'} · d₀ ${pt.initial_droplet_diameter_mm ?? '—'} mm · ${pt.test_end ?? 'no outcome'} (${pt.reading})`;
-              return `<g class="flam-pt"><circle cx="${x}" cy="${y}" r="7" fill="transparent"/>${outcomeMark(pt.reading, x, y)}<title>${esc(tip)}</title></g>`;
+              return `<g class="flam-pt"><circle cx="${x}" cy="${y}" r="8" fill="transparent"/>${outcomeMark(pt.reading, x, y, 4.6)}<title>${esc(tip)}</title></g>`;
             })
             .join('');
         })
@@ -94,5 +97,5 @@ export function flammabilitySVG(groups, bands, uid, domain = [0.1, 0.36]) {
     })
     .join('');
   const summary = groups.map((g) => `${g.label}: ${g.bracket.status}`).join('; ');
-  return `<svg class="chart flam-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(`O₂ mole fraction by pressure band and outcome. ${summary}. A table with the same data follows.`)}"><defs><pattern id="hatch-${uid}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="var(--muted)" stroke-opacity=".45" stroke-width="2"/></pattern></defs>${grid}<line x1="${p.l}" y1="${p.t}" x2="${p.l}" y2="${h - p.b}" stroke="var(--line)"/><line x1="${p.l}" y1="${h - p.b}" x2="${w - p.r}" y2="${h - p.b}" stroke="var(--line)"/><text x="12" y="${(p.t + h - p.b) / 2}" transform="rotate(-90 12 ${(p.t + h - p.b) / 2})" text-anchor="middle" fill="var(--muted)" font-size="9">Ambient O₂ mole fraction</text>${columns}<text x="${(p.l + w - p.r) / 2}" y="${h - 5}" text-anchor="middle" fill="var(--muted)" font-size="9">Ambient pressure band (sideways spread within a band separates tests at the same O₂; it is not a pressure difference)</text></svg>`;
+  return `<svg class="chart flam-chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(`O₂ mole fraction by pressure band and outcome. ${summary}. A table with the same data follows.`)}"><defs><pattern id="hatch-${uid}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="var(--muted)" stroke-opacity=".45" stroke-width="2"/></pattern></defs>${grid}<line x1="${p.l}" y1="${p.t}" x2="${p.l}" y2="${h - p.b}" stroke="var(--line)"/><line x1="${p.l}" y1="${h - p.b}" x2="${w - p.r}" y2="${h - p.b}" stroke="var(--line)"/><text x="14" y="${(p.t + h - p.b) / 2}" transform="rotate(-90 14 ${(p.t + h - p.b) / 2})" text-anchor="middle" fill="var(--muted)" font-size="11">Ambient O₂ mole fraction</text>${columns}</svg>`;
 }
