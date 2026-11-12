@@ -115,18 +115,57 @@ function combustion() {
 function datasetPage() {
   return `${pageHead('Experiment Dataset Explorer', 'Browse source values and inspect the record-level metadata.')}<div class="grid two"><article class="card"><div class="card-head"><div><h3>${esc(dataset.dataset.name)}</h3><p class="sub">${esc(dataset.dataset.title)}</p></div><span class="tag obs">OBSERVED</span></div><div class="list-row"><span>Investigation ID</span><b class="mono">${dataset.dataset.id}</b></div><div class="list-row"><span>DOI</span><a href="https://doi.org/${dataset.dataset.doi}" target="_blank" rel="noreferrer" class="mono">${dataset.dataset.doi} ↗</a></div><div class="list-row"><span>License</span><b>${dataset.dataset.license}</b></div><div class="list-row"><span>Visible records</span><b>${dataset.dataset.records}</b></div><div class="list-row"><span>Fuel and environment</span><b>Methanol · ISS microgravity investigation</b></div></article><article class="card"><h3>Data dictionary</h3><p class="sub">Values and units reported by the NASA PSI page’s FLEX table.</p><div class="list-row"><span>pressure_mmHg</span><b>Ambient pressure · mmHg</b></div><div class="list-row"><span>oxygen_mole_fraction</span><b>Initial O₂ composition · unitless</b></div><div class="list-row"><span>initial_droplet_diameter_mm</span><b>Initial diameter · mm</b></div><div class="list-row"><span>burning_rate_mm_s</span><b>Burning-rate constant · mm²/s</b></div><div class="list-row"><span>burn_time_s</span><b>Burn time · s</b></div><div class="list-row"><span>visible_flame_extinction_diameter_mm</span><b>Visible flame extinction diameter · mm</b></div></article></div><article class="card" style="margin-top:15px"><div class="card-head"><div><h3>Source rows</h3><p class="sub">Blank source fields are preserved as missing values.</p></div><span class="tag">${dataset.validation.valid ? 'SCHEMA VALID' : 'SCHEMA ERROR'}</span></div>${rowsTable(dataset.rows)}</article><div class="callout warn" style="margin-top:14px">${esc(dataset.dataset.recordScope)} The full raw and analyzed experiment assets remain available through NASA PSI and may have separate file-level metadata or access conditions.</div>`;
 }
-function analysisPage() {
-  const st = analysis.summary.stats;
-  return `${pageHead('Scientific Analysis Workbench', 'Reproducible summary statistics computed from source rows. Null values are excluded per variable.')}<div class="grid three">${Object.entries(
-    st,
-  )
+const WB_VARIABLES = [
+  ['burning_rate_mm_s', 'Burning-rate constant (mm²/s)'],
+  ['initial_droplet_diameter_mm', 'Initial droplet diameter (mm)'],
+  ['visible_flame_extinction_diameter_mm', 'Flame extinction diameter (mm)'],
+  ['burn_time_s', 'Burn time (s)'],
+  ['pressure_mmHg', 'Pressure (mmHg)'],
+  ['oxygen_mole_fraction', 'Oxygen mole fraction'],
+];
+const WB_DEFAULT = { fuel: '', pressureBand: '', diluent: '', variable: 'burning_rate_mm_s' };
+let wbFilter = { ...WB_DEFAULT };
+const fmt = (v, d = 3) => (Number.isFinite(v) ? v.toFixed(d) : '—');
+function ciCell(ci) {
+  if (!ci) return '—';
+  if (ci.low === null)
+    return `<span style="color:var(--muted)" title="${esc(ci.reason || '')}">${ci.n < 5 ? 'not reported (n &lt; 5)' : 'not reported'}</span>`;
+  return `${fmt(ci.low)} – ${fmt(ci.high)}`;
+}
+function wbSelect(id, label, options, value) {
+  return `<label style="font-size:10px;color:var(--muted)">${label} <select id="${id}">${options.map(([v, text]) => `<option value="${esc(v)}" ${v === value ? 'selected' : ''}>${esc(text)}</option>`).join('')}</select></label>`;
+}
+function wbGroupRow(label, g, bold = false) {
+  const a = g.association,
+    name = bold ? `<b>${esc(label)}</b>` : esc(label);
+  return `<tr><td>${name}</td><td>${g.records}</td><td>${g.n}</td><td><b>${fmt(g.mean)}</b></td><td>${ciCell(g.ci95)}</td><td>${fmt(g.sampleSd)}</td><td>${a.r === null ? '—' : fmt(a.r)} <span style="color:var(--muted)">(n=${a.n})</span></td><td>${a.r === null ? '—' : ciCell(a.ci95)}</td></tr>`;
+}
+async function analysisPage() {
+  const params = new URLSearchParams(Object.entries(wbFilter).filter(([, v]) => v));
+  const wb = await get(`/api/analysis?${params}`);
+  const c = wb.conditions,
+    strata = wb.strata,
+    filtered = Object.keys(wb.filter).length > 0,
+    varLabel = WB_VARIABLES.find(([k]) => k === wbFilter.variable)?.[1] || wbFilter.variable,
+    any = (label) => [['', label]];
+  const bar = `<article class="card"><div class="card-head"><div><h3>Test-condition filter</h3><p class="sub">${esc(c.bandDefinition)} Diluent is the added inert gas (CO₂ or He); "no diluent" means O₂/N₂ only.</p></div><span class="tag obs">${wb.records} OF ${dataset.dataset.records} TESTS</span></div><div class="toolbar" style="margin:0">${wbSelect('wbFuel', 'Fuel', any('All fuels').concat(c.fuels.map((f) => [f.id, `${f.label} (${f.n})`])), wbFilter.fuel)}${wbSelect('wbBand', 'Pressure', any('All pressures').concat(c.pressureBands.map((b) => [b.id, `${b.label} · ${b.observed} (${b.n})`])), wbFilter.pressureBand)}${wbSelect('wbDiluent', 'Diluent', any('All diluents').concat(c.diluents.map((d) => [d.id, `${d.label} (${d.n})`])), wbFilter.diluent)}${wbSelect('wbVariable', 'Grouped variable', WB_VARIABLES, wbFilter.variable)}<button class="outline-btn" id="wbReset">Reset</button></div></article>`;
+  if (!strata)
+    return `${pageHead('Scientific Analysis Workbench', 'Reproducible summary statistics computed from source rows.')}${bar}<div class="callout warn" style="margin-top:15px">No bundled test matches ${esc(wb.conditionLabel)}. Nothing is computed for an empty stratum.</div>`;
+  const st = wb.summary.stats,
+    pooled = strata.pooled,
+    boot = strata.bootstrap,
+    highBand = c.pressureBands.find((b) => b.id === '>2atm');
+  const metrics = Object.entries(st)
     .map(
       ([k, v]) =>
         `<article class="card metric"><div class="label">${k.replaceAll('_', ' ')}</div><strong>${v.mean === null ? '—' : v.mean.toFixed(3)}</strong><small>Mean · ${v.unit} · n=${v.n} · missing=${v.missing}</small><p class="sub">Sample SD ${v.sd === null ? '—' : v.sd.toFixed(3)} · range ${v.min ?? '—'}–${v.max ?? '—'}</p></article>`,
     )
-    .join(
-      '',
-    )}</div><div class="grid two" style="margin-top:15px"><article class="card"><div class="card-head"><div><h3>Exploratory association</h3><p class="sub">Initial droplet diameter vs. burning rate</p></div><span class="tag comp">COMPUTED</span></div><div style="font-size:34px;font-weight:800;margin:18px 0">${analysis.associations.r?.toFixed(3) ?? '—'}</div><p class="sub">Pearson r from n = ${analysis.associations.n} paired values. Tests pool different fuels, pressures and diluents, so this is unsuitable for causal claims.</p><div class="callout warn">No hypothesis test is run: pooled test conditions do not support a stable inferential claim here.</div></article><article class="card"><h3>Methods & reproducibility</h3><div class="list-row"><span>Mean</span><b>Arithmetic mean</b></div><div class="list-row"><span>Spread</span><b>Sample standard deviation (n − 1)</b></div><div class="list-row"><span>Missing values</span><b>Excluded per variable; no imputation</b></div><div class="list-row"><span>Source table</span><b>NASA PSI-69 · official experimental table</b></div><div class="list-row"><span>Software</span><b>MORS AEGIS 1.0 · deterministic JS</b></div></article></div><article class="card" style="margin-top:15px"><div class="card-head"><div><h3>Import a CSV for local analysis</h3><p class="sub">Upload is processed in your browser. Required columns: initial_droplet_diameter_mm, burning_rate_mm_s. No file is sent to a server.</p></div></div><div class="upload"><input type="file" id="csvUpload" accept=".csv,text/csv"><span> · CSV, up to 5 MB</span></div><div id="uploadResult"></div></article>`;
+    .join('');
+  const table = `<article class="card" style="margin-top:15px"><div class="card-head"><div><h3>Per-condition results · ${esc(varLabel)}</h3><p class="sub">${esc(wb.conditionLabel)} · grouped by fuel, pressure band and diluent. 95% CIs are seeded percentile bootstrap intervals (seed ${boot.seed}, ${boot.resamples} resamples) and are not reported when n &lt; ${boot.minN}.</p></div><span class="tag comp">COMPUTED</span></div><div class="table-wrap"><table><thead><tr><th>Condition</th><th>Tests</th><th>n</th><th>Mean</th><th>95% CI (mean)</th><th>Sample SD</th><th>Pearson r · diameter vs burning rate</th><th>95% CI (r)</th></tr></thead><tbody>${wbGroupRow(filtered ? `${wb.conditionLabel} (all)` : 'All tests (pooled)', pooled, true)}${strata.groups.map((g) => wbGroupRow(g.label, g)).join('')}</tbody></table></div><div class="callout warn" style="margin-top:12px">${filtered ? 'Within each row, oxygen fraction, diluent fraction and droplet size still vary between tests.' : 'The first row pools different fuels, pressures and diluents; read the per-condition rows instead.'} The &gt;2 atm band spans about 2.0–3.1 atm and holds only ${highBand?.n ?? 0} tests. Intervals describe resampling of these records, not instrument uncertainty.</div></article>`;
+  const assoc = `<article class="card"><div class="card-head"><div><h3>Exploratory association</h3><p class="sub">Initial droplet diameter vs. burning rate · ${esc(wb.conditionLabel)}</p></div><span class="tag comp">COMPUTED</span></div><div style="font-size:34px;font-weight:800;margin:18px 0">${wb.associations.r?.toFixed(3) ?? '—'}</div><p class="sub">Pearson r from n = ${wb.associations.n} paired values · 95% CI ${wb.associations.r === null ? '—' : ciCell(pooled.association.ci95)}. ${filtered ? 'Other test conditions still vary within this selection' : 'Tests pool different fuels, pressures and diluents'}, so this is unsuitable for causal claims.</p><div class="callout warn">No hypothesis test is run. Per-condition r values in the table are small-sample and exploratory.</div></article>`;
+  const methods = `<article class="card"><h3>Methods & reproducibility</h3><div class="list-row"><span>Mean</span><b>Arithmetic mean</b></div><div class="list-row"><span>Spread</span><b>Sample standard deviation (n − 1)</b></div><div class="list-row"><span>Interval</span><b>95% percentile bootstrap · seed ${boot.seed} · ${boot.resamples} resamples · none if n &lt; ${boot.minN}</b></div><div class="list-row"><span>Grouping</span><b>Fuel · pressure band · diluent</b></div><div class="list-row"><span>Missing values</span><b>Excluded per variable; no imputation</b></div><div class="list-row"><span>Source table</span><b>NASA PSI-69 · official experimental table</b></div><div class="list-row"><span>Software</span><b>MORS AEGIS 3.0 · deterministic JS</b></div></article>`;
+  const upload = `<article class="card" style="margin-top:15px"><div class="card-head"><div><h3>Import a CSV for local analysis</h3><p class="sub">Upload is processed in your browser. Required columns: initial_droplet_diameter_mm, burning_rate_mm_s. No file is sent to a server.</p></div></div><div class="upload"><input type="file" id="csvUpload" accept=".csv,text/csv"><span> · CSV, up to 5 MB</span></div><div id="uploadResult"></div></article>`;
+  return `${pageHead('Scientific Analysis Workbench', 'Reproducible summary statistics computed from source rows, per test condition. Null values are excluded per variable.')}${bar}<div class="grid three" style="margin-top:15px">${metrics}</div>${table}<div class="grid two" style="margin-top:15px">${assoc}${methods}</div>${upload}`;
 }
 function comparePage() {
   return `${pageHead('Experiment Comparison Studio', 'Compare two FLEX tests. Differences are computed only when fuel and ambient gas composition match.')}<div class="grid two"><article class="card"><h3>Test A</h3><label class="field-label">Select record</label><select id="compareA" class="field">${dataset.rows.map((r) => `<option value="${esc(r.id)}">${esc(r.id)} · ${r.burning_rate_mm_s ?? '—'} mm²/s</option>`).join('')}</select><div id="compareResultA"></div></article><article class="card"><h3>Test B</h3><label class="field-label">Select record</label><select id="compareB" class="field">${dataset.rows.map((r, i) => `<option value="${esc(r.id)}" ${i === 1 ? 'selected' : ''}>${esc(r.id)} · ${r.burning_rate_mm_s ?? '—'} mm²/s</option>`).join('')}</select><div id="compareResultB"></div></article></div><article class="card" style="margin-top:15px"><div class="card-head"><div><h3>Paired variables</h3><p class="sub">Observed source values side by side</p></div><span class="tag obs">OBSERVED</span></div><div id="compareTable"></div></article><div class="callout warn" style="margin-top:14px">These are individual test records, not controlled matched groups. A displayed difference does not establish a physical effect.</div>`;
@@ -190,7 +229,7 @@ function copilot() {
 }
 async function sourcesPage() {
   const { sources } = await get('/api/sources');
-  return `${pageHead('Scientific Source Registry', 'Authoritative sources, documented access modes, and current credential availability.')}<article class="card"><div class="table-wrap"><table><thead><tr><th>Source</th><th>Domain</th><th>Access</th><th>Mode</th><th>Credential</th><th></th></tr></thead><tbody>${sources.map((s) => `<tr><td><b>${esc(s.name)}</b><br><span class="sub">${esc(s.note)}</span></td><td>${esc(s.domain)}</td><td>${esc(s.access)}</td><td><span class="status ${s.mode === 'not-used' ? 'off' : s.configured ? '' : 'pending'}">${s.mode.toUpperCase()}</span></td><td>${s.configured ? 'AVAILABLE' : 'NOT DETECTED'}</td><td><a href="${esc(s.url)}" target="_blank" rel="noreferrer">Open ↗</a></td></tr>`).join('')}</tbody></table></div></article><div class="callout warn" style="margin-top:14px">A credential being present does not certify connectivity or authorization. NASA Open API credentials are not used by the current research workflow because the selected PSI source is more relevant.</div>`;
+  return `${pageHead('Scientific Source Registry', 'Authoritative sources, documented access modes, and current credential availability.')}<article class="card"><div class="table-wrap"><table><thead><tr><th>Source</th><th>Domain</th><th>Access</th><th>Mode</th><th>Credential</th><th></th></tr></thead><tbody>${sources.map((s) => `<tr><td><b>${esc(s.name)}</b><br><span style="color:var(--muted)">${esc(s.note)}</span></td><td>${esc(s.domain)}</td><td>${esc(s.access)}</td><td><span class="status ${s.mode === 'not-used' ? 'off' : s.configured ? '' : 'pending'}">${s.mode.toUpperCase()}</span></td><td>${s.configured ? 'AVAILABLE' : 'NOT DETECTED'}</td><td><a href="${esc(s.url)}" target="_blank" rel="noreferrer">Open ↗</a></td></tr>`).join('')}</tbody></table></div></article><div class="callout warn" style="margin-top:14px">A credential being present does not certify connectivity or authorization. NASA Open API credentials are not used by the current research workflow because the selected PSI source is more relevant.</div>`;
 }
 function provenance() {
   return `${pageHead('Evidence & Provenance Explorer', 'Follow each value from public source record through calculation and interpretation.')}<div class="grid two"><article class="card"><span class="tag obs">OBSERVED</span><h3 style="margin:12px 0 7px">Source measurement rows</h3><p class="sub">NASA PSI-69 FLEX · DOI 10.60555/mbq8-0451 · public investigation page table</p><a href="https://psi.nasa.gov/physci/repo/data/investigations/PSI-69" target="_blank" rel="noreferrer">Open source record ↗</a></article><article class="card"><span class="tag comp">COMPUTED</span><h3 style="margin:12px 0 7px">Null-aware descriptive statistics</h3><p class="sub">Arithmetic mean and sample standard deviation per variable; rows with missing values excluded for that variable.</p><b>Pipeline: read CSV → validate ranges → summarize</b></article></div><article class="card" style="margin-top:15px"><h3>Traceability ledger</h3><div class="list-row"><span class="mono">DS-PSI69-FLEX-TABLE-V1</span><b>Official PSI-69 experimental table · corrections in flex-psi69-quality.json</b></div><div class="list-row"><span class="mono">CALC-DESC-001</span><b>Summary statistics · reproducible from CSV and formula notes</b></div><div class="list-row"><span class="mono">AI-INTERPRETATION</span><b>Separate from computed data · provider/model disclosed</b></div><div class="list-row"><span class="mono">LIMITATION-001</span><b>Selection context and full archive not yet ingested</b></div></article>${rowsTable(dataset.rows)}`;
@@ -454,6 +493,22 @@ function bindPage() {
         }),
     );
   }
+  for (const [id, key] of [
+    ['#wbFuel', 'fuel'],
+    ['#wbBand', 'pressureBand'],
+    ['#wbDiluent', 'diluent'],
+    ['#wbVariable', 'variable'],
+  ])
+    if ($(id))
+      $(id).onchange = (e) => {
+        wbFilter = { ...wbFilter, [key]: e.target.value };
+        go('Analysis Workbench');
+      };
+  if ($('#wbReset'))
+    $('#wbReset').onclick = () => {
+      wbFilter = { ...WB_DEFAULT };
+      go('Analysis Workbench');
+    };
   if ($('#csvUpload'))
     $('#csvUpload').onchange = async (e) => {
       const f = e.target.files[0],
