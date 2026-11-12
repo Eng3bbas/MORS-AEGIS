@@ -7,6 +7,7 @@ import { $, esc, toast, safeNasaHref, pageHead, stat, download } from './lib/dom
 import { get, post } from './lib/api.js';
 import { chartSVG } from './lib/charts.js';
 import { strictNumber, parseCSVClient, pearsonLocal } from './lib/csv-client.js';
+import { flammabilityShell, mountFlammability } from './lib/flammability.js';
 const nav = [
   ['Research Explorer', 'Interactive Research Explorer', '⌕', 'group'],
   ['Overview', 'Mission overview', '⌂', 'group'],
@@ -40,6 +41,7 @@ nav.splice(
   -1,
   0,
   ['Scientific Core', 'Scientific Data & Replay', '⌁', 'group'],
+  ['Flammability Map', 'Flammability Map · LOI Brackets', '◭', 'group'],
   ['Challenge Mode', 'Scientific Challenge Mode', '◈', 'group'],
   ['Computer Vision', 'Computer Vision Laboratory', '▣', 'group'],
   ['Earth 3D', 'Earth 3D Observatory', '◉', 'group'],
@@ -286,6 +288,7 @@ const pageMap = {
   'Challenge Mode': () => '<div id="coreMount"></div>',
   'Computer Vision': () => '<div id="visionMount"></div>',
   'Earth 3D': () => '<div id="earthMount"></div>',
+  'Flammability Map': flammabilityShell,
 };
 async function go(name) {
   const id = ++navigationId;
@@ -310,6 +313,7 @@ async function go(name) {
     if (id !== navigationId) return;
     if (name === 'Computer Vision') viewCleanup = mountVisionLab(c.querySelector('#visionMount'));
     if (name === 'Earth 3D') viewCleanup = mountEarthGlobe(c.querySelector('#earthMount'));
+    if (name === 'Flammability Map') await mountFlammability(c);
     if (name === 'Comparison Studio') renderCompare();
     if (name === 'AI Copilot') {
       const provider = (await get('/api/health')).credentials.gemini;

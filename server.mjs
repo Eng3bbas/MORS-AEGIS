@@ -10,8 +10,9 @@ import { dataRoutes } from './src/server/routes/data.mjs';
 import { researchRoutes } from './src/server/routes/research.mjs';
 import { feedRoutes } from './src/server/routes/feeds.mjs';
 import { copilotRoutes } from './src/server/routes/copilot.mjs';
+import { flammabilityRoutes } from './src/server/routes/flammability.mjs';
 
-const ROUTES = new Map(Object.entries({ ...dataRoutes, ...researchRoutes, ...feedRoutes, ...copilotRoutes }));
+const ROUTES = new Map(Object.entries({ ...dataRoutes, ...researchRoutes, ...feedRoutes, ...copilotRoutes, ...flammabilityRoutes }));
 const API_PATHS = new Set([...ROUTES.keys()].map(key => key.split(' ')[1]));
 
 const MIME = {

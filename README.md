@@ -36,6 +36,7 @@ Evidence tiers are OBSERVED, COMPUTED, INFERRED, HYPOTHESIS, and SIMULATED. The 
 Browser SPA (public/)
   ├─ /api/datasets/flex ── ms02-connectors/flex-psi69.csv
   ├─ /api/analysis ─────── ms05-analysis/analysis.mjs
+  ├─ /api/flammability ── ms05-analysis/flammability.mjs (LOI brackets)
   ├─ /api/workflow ─────── ms09-agents/workflow.mjs
   ├─ /api/firms ────────── NASA FIRMS area CSV, key stays server-side
   ├─ /api/noaa ─────────── NOAA SWPC public JSON
