@@ -1,12 +1,33 @@
 name: verify
 on: [push, pull_request]
+permissions:
+  contents: read
 jobs:
   node:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-      - run: npm test
-      - run: node scripts/check.mjs
+          node-version: ${{ matrix.node-version }}
+      - name: Tests with coverage
+        run: node --test --experimental-test-coverage
+      - name: Syntax and credential-signature check
+        run: node scripts/check.mjs
+      - name: Prettier
+        run: npx --yes prettier@3 --check public/app.js public/lib
+      - name: ESLint
+        run: npx --yes eslint@10 .
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Pinned CLI image: no licence key or extra token needed, and it scans the full history.
+      - name: Gitleaks secret scan
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --redact --no-banner --verbose

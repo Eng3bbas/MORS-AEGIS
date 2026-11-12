@@ -10,7 +10,8 @@
     "data:fetch": "node scripts/fetch-psi69.mjs",
     "data:normalize": "node scripts/fetch-psi69.mjs --offline",
     "format": "npx --yes prettier@3 --write public/app.js public/lib",
-    "format:check": "npx --yes prettier@3 --check public/app.js public/lib"
+    "format:check": "npx --yes prettier@3 --check public/app.js public/lib",
+    "lint": "npx --yes eslint@10 ."
   },
   "engines": { "node": ">=22.13" }
 }

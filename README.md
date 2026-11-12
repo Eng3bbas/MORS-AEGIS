@@ -4,9 +4,9 @@ MORS AEGIS 3.0 alpha is a local scientific research application centered on the 
 
 ## Run it
 
-On this Windows machine, run `start.ps1` from PowerShell. It starts the app at <http://127.0.0.1:4173> and points the backend at the supplied Desktop credential file if it exists. The server parses credentials in memory and never returns their values to the browser. You can instead copy `.env.example` to `.env` and set values there. Never commit `.env`.
+On this Windows machine, run `start.ps1` from PowerShell. It starts the app at <http://127.0.0.1:4173> using settings from `.env` in the project folder: copy `.env.example` to `.env` and set values there. Never commit `.env`. The server parses credentials in memory and never returns their values to the browser.
 
-Requirements: Node.js 22.13+ (Node 26 used for local verification). To start manually: `npm start`. To validate: `npm test`. For Docker, set a random 32+ character `MORS_ACCESS_TOKEN` in a local `.env`, then run `docker compose up --build` and open `http://127.0.0.1:4173`. The browser will ask for the token once per server session. Compose publishes on loopback only; use TLS and access controls before changing that binding.
+Requirements: Node.js 22.13+ (Node 26 used for local verification). To start manually: `npm start`. To validate: `npm test`. For Docker, set a random 32+ character `MORS_ACCESS_TOKEN` in a local `.env`, then run `docker compose up --build` and open `http://127.0.0.1:4173`. The browser asks for the token at sign-in; each sign-in gets its own session, which ends after 12 hours idle (`MORS_SESSION_IDLE_SECONDS`), on `POST /api/logout`, or when the server restarts. At most 64 sessions are kept (`MORS_SESSION_MAX`); the least recently used is dropped first. Compose publishes on loopback only; use TLS and access controls before changing that binding.
 
 ### Windows LAN distribution
 
@@ -73,7 +73,7 @@ Supported server-side settings: `GEMINI_API_KEY`, `NASA_FIRMS_MAP_KEY`, `NASA_AP
 
 NASA FIRMS area API bounds source requests to VIIRS_SNPP_NRT, 1–5 days, caller-selected coordinates, and local rate limiting. The upstream quota and returned-record cap apply. NOAA and FIRMS connectivity may fail independently without affecting the bundled FLEX analysis.
 
-**Security note:** `start.ps1` can read `New Text Document (2).txt` from the current user's Desktop. That file is not copied into the project or ZIP. Since provider credentials were shared as attachments during setup, rotate/revoke active keys and update the local credential file before relying on them. Gemini chat sends the question, up to eight recent turns, and the bundled public FLEX subset to Google's API. Do not submit secrets or personal data. The default Node/Docker deployment remains loopback-only unless explicitly configured; the Windows LAN launcher enforces a generated access token and restricts firewall access to the private subnet, but its HTTP traffic is not encrypted. Do not expose it to the public internet. See [SECURITY.md](SECURITY.md).
+**Security note:** `start.ps1` reads provider keys from the project's `.env` only. A separate credentials file is read only if you opt in by setting `MORS_CREDENTIALS_FILE` (in `.env` or the environment) to its path; keep such a file outside the project and protect it with OS account controls. Since provider credentials were shared as attachments during setup, rotate/revoke active keys before relying on them. Gemini chat sends the question, up to eight recent turns, and the bundled public FLEX subset to Google's API. Do not submit secrets or personal data. The default Node/Docker deployment remains loopback-only unless explicitly configured; the Windows LAN launcher enforces a generated access token and restricts firewall access to the private subnet, but its HTTP traffic is not encrypted. Do not expose it to the public internet. See [SECURITY.md](SECURITY.md).
 
 ## Known limitations
 
@@ -115,7 +115,7 @@ NASA FIRMS area API bounds source requests to VIIRS_SNPP_NRT, 1–5 days, caller
 | Arabic interface | Partially implemented (RTL shell and controls; scientific copy remains English) |
 | Habitat module | No-data research boundary implemented; telemetry integration not implemented |
 | Quantum research | Small classical statevector demonstration only |
-| LAN authentication | Implemented for Windows launcher with random per-host access token and HttpOnly session; no user roles or per-user database isolation |
+| LAN authentication | Implemented for Windows launcher with random per-host access token and per-login HttpOnly sessions (idle expiry, session cap, `POST /api/logout`); no user roles or per-user database isolation |
 | Container build / CI | Dockerfile and CI workflow provided; container deployment not run |
 
 ## Verification (final build)

@@ -112,9 +112,8 @@ internal static class Program
         var dataDir = Path.Combine(StateDir, "data");
         Directory.CreateDirectory(dataDir);
         info.Environment["MORS_DB_PATH"] = Path.Combine(dataDir, "mors.sqlite");
-        var suppliedFile = Environment.GetEnvironmentVariable("MORS_CREDENTIALS_FILE");
-        var desktopFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "New Text Document (2).txt");
-        if (string.IsNullOrWhiteSpace(suppliedFile) && File.Exists(desktopFile)) info.Environment["MORS_CREDENTIALS_FILE"] = desktopFile;
+        // Provider keys come from the app folder's .env or an explicit MORS_CREDENTIALS_FILE
+        // in the user's environment (inherited by the child process); no implicit file lookup.
         var process = Process.Start(info) ?? throw new InvalidOperationException("Could not start bundled Node runtime.");
         process.OutputDataReceived += (_, _) => { }; // Drain output without writing possible provider details.
         process.ErrorDataReceived += (_, _) => { };
