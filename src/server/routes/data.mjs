@@ -5,6 +5,9 @@ import { SOURCES } from '../../../ms02-connectors/registry.mjs';
 import { HOST, secrets } from '../config.mjs';
 import { send, readJson, rateLimit } from '../http.mjs';
 import { researchDataset, catalogList } from '../dataset.mjs';
+import { normalizeFilter, filterRows, conditionLabel, conditionCatalog } from '../../../ms05-analysis/strata.mjs';
+import { stratifiedSummary } from '../../../ms05-analysis/bootstrap.mjs';
+import { MEASUREMENTS } from '../../science/research.mjs';
 
 function sourceList() {
   const configured = {
@@ -47,9 +50,21 @@ export const dataRoutes = {
     });
   },
 
-  'GET /api/analysis': async (req, res) => {
+  // Optional ?fuel=&pressureBand=&diluent=&variable= narrow the table to one test-condition stratum.
+  'GET /api/analysis': async (req, res, url) => {
     const { rows } = await researchDataset();
-    return send(res, 200, { summary: summarize(rows), associations: pearson(rows, 'initial_droplet_diameter_mm', 'burning_rate_mm_s') });
+    const q = url.searchParams;
+    let filter, variable = q.get('variable') || 'burning_rate_mm_s';
+    try {
+      filter = normalizeFilter({ fuel: q.get('fuel'), pressureBand: q.get('pressureBand'), diluent: q.get('diluent') });
+      if (!Object.hasOwn(MEASUREMENTS, variable)) throw new Error('Unknown measurement.');
+    } catch (error) { return send(res, 400, { error: error.message }); }
+    const chosen = filterRows(rows, filter);
+    return send(res, 200, {
+      filter, conditionLabel: conditionLabel(filter), records: chosen.length, conditions: conditionCatalog(rows),
+      summary: summarize(chosen), associations: pearson(chosen, 'initial_droplet_diameter_mm', 'burning_rate_mm_s'),
+      strata: chosen.length ? stratifiedSummary(chosen, { variable, unit: MEASUREMENTS[variable], condition: filter }) : null
+    });
   },
 
   'POST /api/workflow': async (req, res, url, ip) => {
