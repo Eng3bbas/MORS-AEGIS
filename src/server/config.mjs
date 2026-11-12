@@ -4,7 +4,6 @@ import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { randomBytes } from 'node:crypto';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const PUBLIC_ROOT = path.resolve(ROOT, 'public');
@@ -28,7 +27,14 @@ if (NETWORK_MODE && process.env.MORS_ALLOW_NETWORK_BIND !== '1') throw new Error
 export const ACCESS_TOKEN = process.env.MORS_ACCESS_TOKEN || '';
 if (NETWORK_MODE && ACCESS_TOKEN.length < 32) throw new Error('Network binding requires MORS_ACCESS_TOKEN with at least 32 characters.');
 if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) throw new Error('PORT must be an integer between 1 and 65535.');
-export const SESSION_TOKEN = randomBytes(32).toString('hex');
+// LAN sessions: one random token per login, dropped after this many idle seconds.
+const intSetting = (name, fallback, min, max) => {
+  const value = process.env[name] === undefined || process.env[name] === '' ? fallback : Number(process.env[name]);
+  if (!Number.isInteger(value) || value < min || value > max) throw new Error(`${name} must be an integer between ${min} and ${max}.`);
+  return value;
+};
+export const SESSION_IDLE_MS = intSetting('MORS_SESSION_IDLE_SECONDS', 12 * 60 * 60, 1, 7 * 24 * 60 * 60) * 1000;
+export const SESSION_MAX = intSetting('MORS_SESSION_MAX', 64, 1, 10_000);
 export const COOKIE_SECURE = process.env.MORS_COOKIE_SECURE === '1';
 
 const localIPv4 = Object.values(os.networkInterfaces()).flat()

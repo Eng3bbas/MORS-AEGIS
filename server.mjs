@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { HOST, PORT, NETWORK_MODE, PUBLIC_ROOT } from './src/server/config.mjs';
 import { send, safeHeaders, requestIsLocal } from './src/server/http.mjs';
-import { hasSession, loginPage, authenticate } from './src/server/auth.mjs';
+import { hasSession, loginPage, authenticate, logout } from './src/server/auth.mjs';
 import { dataRoutes } from './src/server/routes/data.mjs';
 import { researchRoutes } from './src/server/routes/research.mjs';
 import { feedRoutes } from './src/server/routes/feeds.mjs';
@@ -41,6 +41,7 @@ async function serveStatic(req, res, url) {
 
 async function handle(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  if (url.pathname === '/api/logout') return req.method === 'POST' ? logout(req, res) : send(res, 405, { error: 'Method not allowed.' });
   if (NETWORK_MODE && !hasSession(req)) {
     if (url.pathname === '/api/auth' && req.method === 'POST') return authenticate(req, res);
     if (url.pathname.startsWith('/api/')) return send(res, 401, { error: 'Access token required.' });
